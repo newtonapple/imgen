@@ -11,7 +11,7 @@ import json
 import random
 import time
 
-from ..caption import validate_caption
+from ..caption import model_caption, validate_caption
 from ..config import ModelSpec
 from .base import GenerationResult
 
@@ -50,7 +50,7 @@ class MlxEngine:
 
         t0 = time.time()
         result = self._generator.generate_image(
-            prompt=caption_dict,
+            prompt=model_caption(caption_dict),  # drop non-schema keys (e.g. aspect_ratio)
             seed=seed,
             width=width,
             height=height,

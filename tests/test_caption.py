@@ -1,5 +1,5 @@
 import pytest
-from imagegen.caption import validate_caption, CaptionError
+from imagegen.caption import CaptionError, model_caption, validate_caption
 
 GOOD = {
     "high_level_description": "a cat",
@@ -25,3 +25,15 @@ def test_raise_on_issues():
 
 def test_warn_does_not_raise():
     assert validate_caption({}, raise_on_issues=False)  # non-empty list, no raise
+
+
+def test_model_caption_drops_non_schema_keys():
+    full = {**GOOD, "aspect_ratio": "9:16", "extra": 1}
+    out = model_caption(full)
+    assert out == GOOD  # only the three schema keys remain
+    assert "aspect_ratio" not in out and "extra" not in out
+
+
+def test_model_caption_keeps_only_present_schema_keys():
+    out = model_caption({"high_level_description": "x", "aspect_ratio": "1:1"})
+    assert out == {"high_level_description": "x"}
