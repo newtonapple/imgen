@@ -12,7 +12,7 @@ dependencies = [
 # Apple Silicon (Mac dev/test): MLX backend via mflux.
 # Pinned to the (currently unmerged) Ideogram-4 mlx-forge loader branch.
 mlx = [
-  "mflux @ git+https://github.com/filipstrand/mflux@ideogram-mlx-forge-loader",
+  "mflux>=0.18.0",
 ]
 # CUDA (DGX Spark prod): PyTorch reference pipeline + official ideogram4 package.
 cuda = [
@@ -49,6 +49,9 @@ line-length = 100
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Import the package from src/ directly, so tests run against the working tree
+# regardless of how (or whether) the package is installed in the venv.
+pythonpath = ["src"]
 markers = [
   "integration: requires real weights + backend deps (deselect with -m 'not integration')",
 ]

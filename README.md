@@ -34,15 +34,26 @@ Model weights are **never committed and never live in iCloud** — they sit on a
 external volume / the Spark and are referenced by path (`ModelSpec.path`, or the
 `IMAGEGEN_WEIGHTS_ROOT` env var).
 
-## Setup
+## Install
 
-`scripts/setup.sh` detects the platform and installs the matching extra, into a
-venv kept outside this (iCloud-synced) repo:
+`make install` creates an in-project virtualenv (`.venv/`) and installs the
+package (editable) plus the platform backend extra — which also installs the
+`imagegen` CLI:
 
 ```bash
-make setup      # -> [mlx] on Apple Silicon, [cuda] on Linux
+make install    # .venv + imagegen[mlx] on Apple Silicon, imagegen[cuda] on Linux
 make test       # unit tests (no weights needed)
 make platform   # print detected platform + default backend
+make clean       # remove .venv
+```
+
+To use the library/CLI directly (the `imagegen` console script ships with the
+package via `[project.scripts]`):
+
+```bash
+pip install ".[mlx]"     # Apple Silicon (MLX backend)
+pip install ".[cuda]"    # Linux / DGX Spark (PyTorch backend)
+imagegen --help
 ```
 
 ## CLI Usage
