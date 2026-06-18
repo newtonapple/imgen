@@ -29,10 +29,18 @@ class MlxEngine:
         from mflux.models.common.config import ModelConfig
         from mflux.models.ideogram4 import Ideogram4
 
-        self._generator = Ideogram4(
-            model_path=str(model.path),
-            model_config=ModelConfig.ideogram4_fp8(),
-        )
+        try:
+            self._generator = Ideogram4(
+                model_path=str(model.path),
+                model_config=ModelConfig.ideogram4_fp8(),
+            )
+        except ValueError as exc:
+            raise RuntimeError(
+                f"Could not load an Ideogram-4 model from {model.path}: {exc}\n"
+                "The MLX backend needs the official fp8 checkpoint layout (the "
+                "'ideogram-4-fp8' directory). The MLXBits 'ideogram-4-mlx' / "
+                "'ideogram-4-mlx-q8' (flat-file) builds are NOT supported by released mflux."
+            ) from exc
 
     def generate(
         self,
