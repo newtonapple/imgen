@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Model weights & caches — NEVER commit (they live on an external volume, never in iCloud)
+*.safetensors
+*.gguf
+*.ckpt
+*.bin
+*.pt
+models/
+weights/
+.hf-cache/
+
+# Generated image outputs
+outputs/
+runs/
+*.png
+*.jpg
+*.jpeg
+!docs/**/*.png
+!docs/**/*.jpg
+
+# OS / editor
+.DS_Store

@@ -1,0 +1,54 @@
+[project]
+name = "imagegen"
+version = "0.1.0"
+description = "Ideogram-4 image-generation pipeline: magic-prompt -> structured JSON -> image, with pluggable inference backends (MLX on Apple Silicon, PyTorch/CUDA on the DGX Spark)."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pillow>=10.0",
+]
+
+[project.optional-dependencies]
+# Apple Silicon (Mac dev/test): MLX backend via mflux.
+# Pinned to the (currently unmerged) Ideogram-4 mlx-forge loader branch.
+mlx = [
+  "mflux @ git+https://github.com/filipstrand/mflux@ideogram-mlx-forge-loader",
+]
+# CUDA (DGX Spark prod): PyTorch reference pipeline + official ideogram4 package.
+cuda = [
+  "torch>=2.11",
+  "transformers>=4.49.0",
+  "accelerate>=1.0.0",
+  "safetensors>=0.4.5",
+  "einops>=0.7.0",
+  "sentencepiece",
+  "bitsandbytes>=0.49.2",
+  "ideogram-4 @ git+https://github.com/ideogram-oss/ideogram4.git@main",
+]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.6",
+]
+
+[project.scripts]
+imagegen = "imagegen.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+# Allow git/URL ("direct reference") deps in the mlx/cuda extras (mflux, ideogram-4).
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/imagegen"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "integration: requires real weights + backend deps (deselect with -m 'not integration')",
+]
