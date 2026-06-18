@@ -28,7 +28,7 @@ def _build_provider(model: str):
     return CliMagicPromptProvider(model=model)
 
 
-def _build_engine(model_path: str | None):
+def _build_engine(model_path: str | None, backend: str | None = None):
     """Build an ImageEngine from a model path (or IMAGEGEN_WEIGHTS_ROOT)."""
     import os
 
@@ -44,7 +44,7 @@ def _build_engine(model_path: str | None):
                 "Provide --model-path or set IMAGEGEN_WEIGHTS_ROOT."
             )
         spec = ModelSpec.from_path(root)
-    return create_pipeline(spec)
+    return create_pipeline(spec, backend=backend)
 
 
 # ---------------------------------------------------------------------------
@@ -71,9 +71,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help="target element count for compositional_deconstruction (0=auto)",
     )
     mp.add_argument(
-        "--model",
+        "--magic-model",
         default="codex - gpt-5.5",
-        help="magic-prompt model string (default: 'codex - gpt-5.5')",
+        dest="magic_model",
+        help="magic-prompt provider/model string (default: 'codex - gpt-5.5'); use 'imagegen magic-models' to list choices",
     )
     mp.add_argument(
         "--out",
@@ -100,6 +101,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     gen.add_argument("--out", required=True, help="output image path")
     gen.add_argument(
+        "--backend",
+        choices=["mlx", "torch"],
+        default=None,
+        help="inference backend override (default: auto-detected from platform)",
+    )
+    gen.add_argument(
         "--worker",
         default=None,
         metavar="SOCKET",
@@ -120,9 +127,10 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="target_elements",
     )
     run.add_argument(
-        "--model",
+        "--magic-model",
         default="codex - gpt-5.5",
-        help="magic-prompt model string",
+        dest="magic_model",
+        help="magic-prompt provider/model string (default: 'codex - gpt-5.5'); use 'imagegen magic-models' to list choices",
     )
     run.add_argument(
         "--model-path",
@@ -131,6 +139,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="path to model weights (overrides IMAGEGEN_WEIGHTS_ROOT)",
     )
     run.add_argument("--out", required=True, help="output image path")
+    run.add_argument(
+        "--backend",
+        choices=["mlx", "torch"],
+        default=None,
+        help="inference backend override (default: auto-detected from platform)",
+    )
     run.add_argument(
         "--caption",
         default=None,
@@ -161,9 +175,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="path to model weights (overrides IMAGEGEN_WEIGHTS_ROOT)",
     )
     srv.add_argument(
-        "--model",
+        "--magic-model",
         default="codex - gpt-5.5",
-        help="magic-prompt model string (default: 'codex - gpt-5.5')",
+        dest="magic_model",
+        help="magic-prompt provider/model string (default: 'codex - gpt-5.5')",
+    )
+
+    # -- magic-models --------------------------------------------------------
+    sub.add_parser(
+        "magic-models",
+        help="list available magic-prompt providers/models (one per line)",
     )
 
     return parser
@@ -183,9 +204,17 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write("\n")
         return 0
 
+    # ---- magic-models ------------------------------------------------------
+    if args.cmd == "magic-models":
+        from .magic_prompt.cli_provider import CliMagicPromptProvider
+
+        for model in CliMagicPromptProvider.available_models():
+            sys.stdout.write(model + "\n")
+        return 0
+
     # ---- magic-prompt ------------------------------------------------------
     if args.cmd == "magic-prompt":
-        provider = _build_provider(args.model)
+        provider = _build_provider(args.magic_model)
         caption = provider.expand(
             args.prompt,
             width=args.width,
@@ -228,7 +257,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({**resp, "out": args.out}, indent=2))
             return 0
         caption = json.loads(Path(args.caption).read_text())
-        engine = _build_engine(args.model_path)
+        engine = _build_engine(args.model_path, backend=args.backend)
         result = engine.generate(
             caption,
             width=args.width,
@@ -282,8 +311,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         from .pipeline import Pipeline
 
-        provider = _build_provider(args.model)
-        engine = _build_engine(args.model_path)
+        provider = _build_provider(args.magic_model)
+        engine = _build_engine(args.model_path, backend=args.backend)
         pipeline = Pipeline(engine=engine, magic_prompt=provider)
         result = pipeline.run(
             args.prompt,
@@ -317,7 +346,7 @@ def main(argv: list[str] | None = None) -> int:
         from .pipeline import Pipeline
         from .worker import serve as worker_serve
 
-        provider = _build_provider(args.model)
+        provider = _build_provider(args.magic_model)
         engine = _build_engine(args.model_path)
         pipeline = Pipeline(engine=engine, magic_prompt=provider)
         sys.stderr.write(f"worker listening on {args.socket}\n")

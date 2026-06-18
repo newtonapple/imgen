@@ -97,7 +97,7 @@ def test_generate_cmd(tmp_path, monkeypatch):
 
     fake_engine = FakeEngine()
 
-    monkeypatch.setattr(cli, "_build_engine", lambda model_path: fake_engine)
+    monkeypatch.setattr(cli, "_build_engine", lambda model_path, backend=None: fake_engine)
 
     out_img = tmp_path / "out.png"
     rc = main(
@@ -146,7 +146,7 @@ def test_generate_warns_without_seed(tmp_path, monkeypatch, capsys):
                 duration_s=0.1,
             )
 
-    monkeypatch.setattr(cli, "_build_engine", lambda model_path: FakeEngine())
+    monkeypatch.setattr(cli, "_build_engine", lambda model_path, backend=None: FakeEngine())
 
     out_img = tmp_path / "out.png"
     rc = main(
@@ -206,7 +206,7 @@ def test_run_cmd(tmp_path, monkeypatch):
             },
         )(),
     )
-    monkeypatch.setattr(cli, "_build_engine", lambda model_path: FakeEngine())
+    monkeypatch.setattr(cli, "_build_engine", lambda model_path, backend=None: FakeEngine())
 
     out_img = tmp_path / "run_out.png"
     rc = main(
@@ -221,3 +221,155 @@ def test_run_cmd(tmp_path, monkeypatch):
     )
     assert rc == 0
     assert out_img.exists()
+
+
+# ---------------------------------------------------------------------------
+# New tests for Task 9 (TDD: RED first, GREEN after implementation)
+# ---------------------------------------------------------------------------
+
+def test_run_cmd_magic_model_flag(tmp_path, monkeypatch):
+    """run: --magic-model passes the model string to _build_provider."""
+    import imagegen.cli as cli
+    from imagegen.engine.base import GenerationResult
+
+    recorded = {}
+
+    class FakeImage:
+        def save(self, path):
+            import pathlib
+            pathlib.Path(path).write_bytes(b"fake-image")
+
+    class FakeEngine:
+        backend = "fake"
+
+        def generate(self, caption, *, width, height, preset="V4_DEFAULT_20", seed=None):
+            return GenerationResult(
+                image=FakeImage(), seed=seed or 1, width=width, height=height,
+                preset=preset, caption={}, backend=self.backend, duration_s=0.0,
+            )
+
+    def recording_build_provider(model):
+        recorded["model"] = model
+        return type("P", (), {
+            "expand": lambda self, prompt, *, width, height, target_elements=0: {
+                "high_level_description": prompt, "style_description": {},
+                "compositional_deconstruction": {}, "aspect_ratio": "1:1",
+            }
+        })()
+
+    monkeypatch.setattr(cli, "_build_provider", recording_build_provider)
+    monkeypatch.setattr(cli, "_build_engine", lambda model_path, backend=None: FakeEngine())
+
+    out_img = tmp_path / "out.png"
+    rc = main([
+        "run", "a cat", "--magic-model", "pi - openrouter - x/y",
+        "--seed", "1", "--out", str(out_img),
+    ])
+    assert rc == 0
+    assert recorded["model"] == "pi - openrouter - x/y"
+
+
+def test_magic_models_subcommand(tmp_path, monkeypatch, capsys):
+    """magic-models: prints available models one per line; codex entries always present."""
+    import json as _json
+    pi_data = {
+        "providers": {
+            "openrouter": {
+                "models": [{"id": "x/y", "input": ["text"]}]
+            }
+        }
+    }
+    pi_file = tmp_path / "models.json"
+    pi_file.write_text(_json.dumps(pi_data))
+    monkeypatch.setenv("PI_MODELS_JSON", str(pi_file))
+
+    rc = main(["magic-models"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    lines = [ln for ln in out.splitlines() if ln.strip()]
+    assert "codex - gpt-5.5" in lines
+    assert "pi - openrouter - x/y" in lines  # noqa: E741
+
+
+def test_run_cmd_backend_flag(tmp_path, monkeypatch):
+    """run: --backend mlx is accepted and forwarded to _build_engine."""
+    import imagegen.cli as cli
+    from imagegen.engine.base import GenerationResult
+
+    recorded = {}
+
+    class FakeImage:
+        def save(self, path):
+            import pathlib
+            pathlib.Path(path).write_bytes(b"fake-image")
+
+    class FakeEngine:
+        backend = "mlx"
+
+        def generate(self, caption, *, width, height, preset="V4_DEFAULT_20", seed=None):
+            return GenerationResult(
+                image=FakeImage(), seed=1, width=width, height=height,
+                preset=preset, caption={}, backend=self.backend, duration_s=0.0,
+            )
+
+    def recording_build_engine(model_path, backend=None):
+        recorded["backend"] = backend
+        return FakeEngine()
+
+    monkeypatch.setattr(
+        cli, "_build_provider",
+        lambda model: type("P", (), {
+            "expand": lambda self, prompt, *, width, height, target_elements=0: {
+                "high_level_description": prompt, "style_description": {},
+                "compositional_deconstruction": {}, "aspect_ratio": "1:1",
+            }
+        })(),
+    )
+    monkeypatch.setattr(cli, "_build_engine", recording_build_engine)
+
+    out_img = tmp_path / "out.png"
+    rc = main([
+        "run", "a cat", "--backend", "mlx", "--seed", "1", "--out", str(out_img),
+    ])
+    assert rc == 0
+    assert recorded["backend"] == "mlx"
+
+
+def test_generate_cmd_backend_flag(tmp_path, monkeypatch):
+    """generate: --backend torch is accepted and forwarded to _build_engine."""
+    import imagegen.cli as cli
+    from imagegen.engine.base import GenerationResult
+
+    recorded = {}
+
+    class FakeImage:
+        def save(self, path):
+            import pathlib
+            pathlib.Path(path).write_bytes(b"fake-image")
+
+    class FakeEngine:
+        backend = "torch"
+
+        def generate(self, caption, *, width, height, preset="V4_DEFAULT_20", seed=None):
+            return GenerationResult(
+                image=FakeImage(), seed=1, width=width, height=height,
+                preset=preset, caption={}, backend=self.backend, duration_s=0.0,
+            )
+
+    def recording_build_engine(model_path, backend=None):
+        recorded["backend"] = backend
+        return FakeEngine()
+
+    monkeypatch.setattr(cli, "_build_engine", recording_build_engine)
+
+    cap = {"high_level_description": "test", "style_description": {}, "compositional_deconstruction": {}}
+    cap_file = tmp_path / "cap.json"
+    cap_file.write_text(__import__("json").dumps(cap))
+    out_img = tmp_path / "out.png"
+
+    rc = main([
+        "generate", "--caption", str(cap_file), "--backend", "torch",
+        "--seed", "1", "--out", str(out_img),
+    ])
+    assert rc == 0
+    assert recorded["backend"] == "torch"

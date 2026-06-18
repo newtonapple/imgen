@@ -11,6 +11,9 @@ from ..engine.resolution import aspect_ratio
 
 _TEMPLATE = (Path(__file__).parent / "templates" / "ideogram4_caption.txt").read_text()
 
+CODEX_MODELS = ("gpt-5.5", "gpt-5.4", "gpt-5.4-mini")
+PI_MODELS_PATH = "~/.pi/agent/models.json"
+
 
 class CliMagicPromptProvider:
     def __init__(self, model: str = "codex - gpt-5.5", timeout_s: int = 120, runner=subprocess.run):
@@ -43,6 +46,30 @@ class CliMagicPromptProvider:
         codex = shutil.which("codex") or "codex"
         return [codex, "exec", "--model", model_id, "--sandbox", "read-only",
                 "--skip-git-repo-check", "--ephemeral", instruction]
+
+    @staticmethod
+    def available_models() -> list[str]:
+        """Codex models + text-capable pi models from ~/.pi/agent/models.json
+        (override path via PI_MODELS_JSON env var). Mirrors the ComfyUI CodexPromptToJson node."""
+        import os
+
+        choices = [f"codex - {m}" for m in CODEX_MODELS]
+        path = os.path.expanduser(os.environ.get("PI_MODELS_JSON", PI_MODELS_PATH))
+        try:
+            with open(path) as f:
+                config = json.load(f)
+        except (FileNotFoundError, PermissionError, json.JSONDecodeError):
+            return choices
+        for provider_name, provider in config.get("providers", {}).items():
+            for model in provider.get("models", []):
+                model_id = model.get("id") if isinstance(model, dict) else None
+                if not model_id:
+                    continue
+                input_types = model.get("input")
+                if input_types and "text" not in input_types:
+                    continue
+                choices.append(f"pi - {provider_name} - {model_id}")
+        return choices
 
     @staticmethod
     def _extract_json(text: str) -> str:

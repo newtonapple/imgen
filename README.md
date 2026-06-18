@@ -45,6 +45,44 @@ make test       # unit tests (no weights needed)
 make platform   # print detected platform + default backend
 ```
 
+## CLI Usage
+
+```bash
+# List selectable magic-prompt providers/models
+imagegen magic-models
+
+# End-to-end: prompt -> magic-prompt -> image
+imagegen run "a ginger cat wizard" \
+  --magic-model "codex - gpt-5.5" \
+  --width 1024 --height 1024 --preset V4_DEFAULT_20 --seed 42 \
+  --model-path /Volumes/PRO-G40/data/models/image-gen/ideogram-4-fp8 \
+  --out out.png
+
+# Just expand a prompt to caption JSON (inspect the structured output)
+imagegen magic-prompt "a ginger cat wizard" \
+  --magic-model "codex - gpt-5.5" \
+  --out caption.json
+
+# Generate from an existing caption JSON
+imagegen generate \
+  --caption caption.json \
+  --backend mlx \
+  --seed 42 \
+  --model-path /Volumes/PRO-G40/data/models/image-gen/ideogram-4-mlx-q8 \
+  --out out.png
+
+# Show detected platform + default backend
+imagegen platform
+```
+
+### Selecting a magic-prompt provider/model
+
+`imagegen magic-models` lists all available choices.  Pass one to `--magic-model`:
+
+- `codex - gpt-5.5` / `codex - gpt-5.4` / `codex - gpt-5.4-mini` — local Codex CLI
+- `pi - <provider> - <model-id>` — pi CLI (reads `~/.pi/agent/models.json`;
+  override path with `PI_MODELS_JSON` env var)
+
 ## Status
 
 Phase 1 scaffold: platform detection, config/model spec, the `ImageEngine`
