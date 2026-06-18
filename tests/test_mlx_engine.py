@@ -15,13 +15,13 @@ MODEL = Path("/Volumes/PRO-G40/data/models/image-gen/ideogram-4-fp8")
 
 CAPTION = {
     "high_level_description": "a red cube on a white studio table",
-    "style_description": {"aesthetics": "clean studio product shot",
-                          "color_palette": ["#FF0000", "#FFFFFF"]},
+    "style_description": {
+        "aesthetics": "clean studio product shot",
+        "color_palette": ["#FF0000", "#FFFFFF"],
+    },
     "compositional_deconstruction": {
         "background": "white seamless backdrop",
-        "elements": [
-            {"type": "obj", "bbox": [300, 300, 724, 724], "desc": "a glossy red cube"}
-        ],
+        "elements": [{"type": "obj", "bbox": [300, 300, 724, 724], "desc": "a glossy red cube"}],
     },
 }
 

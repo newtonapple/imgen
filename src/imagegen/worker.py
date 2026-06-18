@@ -1,4 +1,5 @@
 """Warm worker: one engine held in memory, one job at a time over a Unix socket."""
+
 from __future__ import annotations
 
 import json

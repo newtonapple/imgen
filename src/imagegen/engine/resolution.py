@@ -1,4 +1,5 @@
 """Size rounding + aspect ratio, matching the ComfyUI workflow."""
+
 from __future__ import annotations
 from math import gcd, floor
 

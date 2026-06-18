@@ -37,16 +37,26 @@ def test_mlx_supported_here():
     ensure_supported(Backend.MLX)  # must not raise
 
 
-@pytest.mark.skipif(_torch_installed(), reason="torch is installed; the unsupported path won't trigger")
+@pytest.mark.skipif(
+    _torch_installed(), reason="torch is installed; the unsupported path won't trigger"
+)
 def test_torch_backend_errors_without_torch():
     with pytest.raises(RuntimeError, match="cuda"):
         ensure_supported(Backend.TORCH)
 
 
 @pytest.mark.skipif(not is_apple_silicon(), reason="MLX requires Apple Silicon")
-def test_create_pipeline_builds_mlx_engine_stub(tmp_path):
-    m = ModelSpec(name="x", path=tmp_path, backend=Backend.MLX)
+def test_create_pipeline_dispatches_to_mlx(monkeypatch):
+    # Verify the factory builds an MlxEngine for an MLX spec, without loading a
+    # real model (MlxEngine.__init__ otherwise loads mflux from model.path).
+    import imagegen.engine.mlx_engine as mlx_engine
+
+    monkeypatch.setattr(
+        mlx_engine.MlxEngine,
+        "__init__",
+        lambda self, model, **opts: setattr(self, "model", model),
+    )
+    m = ModelSpec(name="x", path=Path("/tmp/x"), backend=Backend.MLX)
     engine = create_pipeline(m)
     assert engine.backend == "mlx"
-    with pytest.raises(NotImplementedError):
-        engine.generate({}, width=512, height=512)
+    assert type(engine).__name__ == "MlxEngine"

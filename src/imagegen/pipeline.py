@@ -1,4 +1,5 @@
 """Orchestrates magic-prompt + engine. Pure glue; the caller saves the image."""
+
 from __future__ import annotations
 
 from .engine.base import GenerationResult, ImageEngine
@@ -37,9 +38,7 @@ class Pipeline:
         preset: str = "V4_DEFAULT_20",
         seed: int | None = None,
     ) -> GenerationResult:
-        return self.engine.generate(
-            caption, width=width, height=height, preset=preset, seed=seed
-        )
+        return self.engine.generate(caption, width=width, height=height, preset=preset, seed=seed)
 
     def run(
         self,
@@ -51,9 +50,5 @@ class Pipeline:
         seed: int | None = None,
         target_elements: int = 0,
     ) -> GenerationResult:
-        caption = self.magic(
-            prompt, width=width, height=height, target_elements=target_elements
-        )
-        return self.generate(
-            caption, width=width, height=height, preset=preset, seed=seed
-        )
+        caption = self.magic(prompt, width=width, height=height, target_elements=target_elements)
+        return self.generate(caption, width=width, height=height, preset=preset, seed=seed)

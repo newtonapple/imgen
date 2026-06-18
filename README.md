@@ -45,6 +45,8 @@ the package (editable) plus the platform backend extra — which also installs t
 ```bash
 make install    # ~/.venvs/imagegen + imagegen[mlx] on Apple Silicon, imagegen[cuda] on Linux
 make test       # unit tests (no weights needed)
+make fmt        # format the code in place (ruff format)
+make lint       # ruff check + ruff format --check (no changes)
 make platform   # print detected platform + default backend
 make clean      # remove the venv
 ```

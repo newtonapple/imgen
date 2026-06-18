@@ -1,4 +1,5 @@
 """Light, dependency-free Ideogram-4 caption validation (works on both backends)."""
+
 from __future__ import annotations
 
 REQUIRED_KEYS = ("high_level_description", "style_description", "compositional_deconstruction")

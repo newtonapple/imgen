@@ -21,6 +21,7 @@ from .platform import platform_summary
 # Hookable factory functions (monkeypatched in tests)
 # ---------------------------------------------------------------------------
 
+
 def _build_provider(model: str):
     """Build a MagicPromptProvider for the given model string."""
     from .magic_prompt.cli_provider import CliMagicPromptProvider
@@ -40,9 +41,7 @@ def _build_engine(model_path: str | None, backend: str | None = None):
     else:
         root = os.environ.get("IMAGEGEN_WEIGHTS_ROOT")
         if not root:
-            raise RuntimeError(
-                "Provide --model-path or set IMAGEGEN_WEIGHTS_ROOT."
-            )
+            raise RuntimeError("Provide --model-path or set IMAGEGEN_WEIGHTS_ROOT.")
         spec = ModelSpec.from_path(root)
     return create_pipeline(spec, backend=backend)
 
@@ -50,6 +49,7 @@ def _build_engine(model_path: str | None, backend: str | None = None):
 # ---------------------------------------------------------------------------
 # Argument parser
 # ---------------------------------------------------------------------------
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="imagegen")
@@ -193,6 +193,7 @@ def _build_parser() -> argparse.ArgumentParser:
 # ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
