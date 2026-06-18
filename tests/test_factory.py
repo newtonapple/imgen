@@ -60,3 +60,18 @@ def test_create_pipeline_dispatches_to_mlx(monkeypatch):
     engine = create_pipeline(m)
     assert engine.backend == "mlx"
     assert type(engine).__name__ == "MlxEngine"
+
+
+@pytest.mark.skipif(not is_apple_silicon(), reason="MLX requires Apple Silicon")
+def test_create_pipeline_forwards_quantize_to_mlx(monkeypatch):
+    import imagegen.engine.mlx_engine as mlx_engine
+
+    seen = {}
+
+    def fake_init(self, model, quantize=None, **opts):
+        self.model = model
+        seen["quantize"] = quantize
+
+    monkeypatch.setattr(mlx_engine.MlxEngine, "__init__", fake_init)
+    create_pipeline(ModelSpec(name="x", path=Path("/tmp/x"), backend=Backend.MLX), quantize=8)
+    assert seen["quantize"] == 8

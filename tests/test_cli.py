@@ -96,7 +96,9 @@ def test_generate_cmd(tmp_path, monkeypatch):
 
     fake_engine = FakeEngine()
 
-    monkeypatch.setattr(cli, "_build_engine", lambda model_path, backend=None: fake_engine)
+    monkeypatch.setattr(
+        cli, "_build_engine", lambda model_path, backend=None, quantize=None: fake_engine
+    )
 
     out_img = tmp_path / "out.png"
     rc = main(
@@ -155,7 +157,9 @@ def test_generate_warns_without_seed(tmp_path, monkeypatch, capsys):
                 duration_s=0.1,
             )
 
-    monkeypatch.setattr(cli, "_build_engine", lambda model_path, backend=None: FakeEngine())
+    monkeypatch.setattr(
+        cli, "_build_engine", lambda model_path, backend=None, quantize=None: FakeEngine()
+    )
 
     out_img = tmp_path / "out.png"
     rc = main(
@@ -220,7 +224,9 @@ def test_run_cmd(tmp_path, monkeypatch):
             },
         )(),
     )
-    monkeypatch.setattr(cli, "_build_engine", lambda model_path, backend=None: FakeEngine())
+    monkeypatch.setattr(
+        cli, "_build_engine", lambda model_path, backend=None, quantize=None: FakeEngine()
+    )
 
     out_img = tmp_path / "run_out.png"
     rc = main(
@@ -290,7 +296,9 @@ def test_run_cmd_magic_model_flag(tmp_path, monkeypatch):
         )()
 
     monkeypatch.setattr(cli, "_build_provider", recording_build_provider)
-    monkeypatch.setattr(cli, "_build_engine", lambda model_path, backend=None: FakeEngine())
+    monkeypatch.setattr(
+        cli, "_build_engine", lambda model_path, backend=None, quantize=None: FakeEngine()
+    )
 
     out_img = tmp_path / "out.png"
     rc = main(
@@ -354,7 +362,7 @@ def test_run_cmd_backend_flag(tmp_path, monkeypatch):
                 duration_s=0.0,
             )
 
-    def recording_build_engine(model_path, backend=None):
+    def recording_build_engine(model_path, backend=None, quantize=None):
         recorded["backend"] = backend
         return FakeEngine()
 
@@ -421,7 +429,7 @@ def test_generate_cmd_backend_flag(tmp_path, monkeypatch):
                 duration_s=0.0,
             )
 
-    def recording_build_engine(model_path, backend=None):
+    def recording_build_engine(model_path, backend=None, quantize=None):
         recorded["backend"] = backend
         return FakeEngine()
 
@@ -451,3 +459,57 @@ def test_generate_cmd_backend_flag(tmp_path, monkeypatch):
     )
     assert rc == 0
     assert recorded["backend"] == "torch"
+
+
+def test_run_cmd_quantize_flag(tmp_path, monkeypatch):
+    """run: --quantize is forwarded to _build_engine."""
+    import imagegen.cli as cli
+    from imagegen.engine.base import GenerationResult
+
+    recorded = {}
+
+    class FakeImage:
+        def save(self, path):
+            import pathlib
+
+            pathlib.Path(path).write_bytes(b"fake-image")
+
+    class FakeEngine:
+        backend = "mlx"
+
+        def generate(self, caption, *, width, height, preset="V4_DEFAULT_20", seed=None):
+            return GenerationResult(
+                image=FakeImage(),
+                seed=1,
+                width=width,
+                height=height,
+                preset=preset,
+                caption={},
+                backend=self.backend,
+                duration_s=0.0,
+            )
+
+    def recording_build_engine(model_path, backend=None, quantize=None):
+        recorded["quantize"] = quantize
+        return FakeEngine()
+
+    monkeypatch.setattr(
+        cli,
+        "_build_provider",
+        lambda model: type(
+            "P",
+            (),
+            {
+                "expand": lambda self, prompt, *, width, height, target_elements=0: {
+                    "high_level_description": prompt,
+                    "style_description": {},
+                    "compositional_deconstruction": {},
+                }
+            },
+        )(),
+    )
+    monkeypatch.setattr(cli, "_build_engine", recording_build_engine)
+
+    rc = main(["run", "a cat", "--quantize", "8", "--seed", "1", "--out", str(tmp_path / "o.png")])
+    assert rc == 0
+    assert recorded["quantize"] == 8

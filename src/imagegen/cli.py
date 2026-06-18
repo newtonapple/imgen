@@ -29,8 +29,12 @@ def _build_provider(model: str):
     return CliMagicPromptProvider(model=model)
 
 
-def _build_engine(model_path: str | None, backend: str | None = None):
-    """Build an ImageEngine from a model path (or IMAGEGEN_WEIGHTS_ROOT)."""
+def _build_engine(model_path: str | None, backend: str | None = None, quantize: int | None = None):
+    """Build an ImageEngine from a model path (or IMAGEGEN_WEIGHTS_ROOT).
+
+    quantize (4 or 8): MLX backend quantizes the fp8 weights to this bit width on
+    load (e.g. 8 = the int8 variant). None keeps native fp8.
+    """
     import os
 
     from .config import ModelSpec
@@ -43,7 +47,7 @@ def _build_engine(model_path: str | None, backend: str | None = None):
         if not root:
             raise RuntimeError("Provide --model-path or set IMAGEGEN_WEIGHTS_ROOT.")
         spec = ModelSpec.from_path(root)
-    return create_pipeline(spec, backend=backend)
+    return create_pipeline(spec, backend=backend, quantize=quantize)
 
 
 # ---------------------------------------------------------------------------
@@ -107,6 +111,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="inference backend override (default: auto-detected from platform)",
     )
     gen.add_argument(
+        "--quantize",
+        type=int,
+        choices=[4, 8],
+        default=None,
+        help="MLX: quantize fp8 weights to N bits on load (8 = the int8 variant); default keeps fp8",
+    )
+    gen.add_argument(
         "--worker",
         default=None,
         metavar="SOCKET",
@@ -146,6 +157,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="inference backend override (default: auto-detected from platform)",
     )
     run.add_argument(
+        "--quantize",
+        type=int,
+        choices=[4, 8],
+        default=None,
+        help="MLX: quantize fp8 weights to N bits on load (8 = the int8 variant); default keeps fp8",
+    )
+    run.add_argument(
         "--caption",
         default=None,
         help="save intermediate caption JSON to this path",
@@ -179,6 +197,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default="codex - gpt-5.5",
         dest="magic_model",
         help="magic-prompt provider/model string (default: 'codex - gpt-5.5')",
+    )
+    srv.add_argument(
+        "--quantize",
+        type=int,
+        choices=[4, 8],
+        default=None,
+        help="MLX: quantize fp8 weights to N bits on load (8 = the int8 variant); default keeps fp8",
     )
 
     # -- magic-models --------------------------------------------------------
@@ -258,7 +283,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({**resp, "out": args.out}, indent=2))
             return 0
         caption = json.loads(Path(args.caption).read_text())
-        engine = _build_engine(args.model_path, backend=args.backend)
+        engine = _build_engine(args.model_path, backend=args.backend, quantize=args.quantize)
         result = engine.generate(
             caption,
             width=args.width,
@@ -313,7 +338,7 @@ def main(argv: list[str] | None = None) -> int:
         from .pipeline import Pipeline
 
         provider = _build_provider(args.magic_model)
-        engine = _build_engine(args.model_path, backend=args.backend)
+        engine = _build_engine(args.model_path, backend=args.backend, quantize=args.quantize)
         pipeline = Pipeline(engine=engine, magic_prompt=provider)
         result = pipeline.run(
             args.prompt,
@@ -348,7 +373,7 @@ def main(argv: list[str] | None = None) -> int:
         from .worker import serve as worker_serve
 
         provider = _build_provider(args.magic_model)
-        engine = _build_engine(args.model_path)
+        engine = _build_engine(args.model_path, quantize=args.quantize)
         pipeline = Pipeline(engine=engine, magic_prompt=provider)
         sys.stderr.write(f"worker listening on {args.socket}\n")
         worker_serve(args.socket, pipeline)

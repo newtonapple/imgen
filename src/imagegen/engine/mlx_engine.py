@@ -21,8 +21,9 @@ _SEED_MAX = 2**31 - 1
 class MlxEngine:
     backend = "mlx"
 
-    def __init__(self, model: ModelSpec, **options):
+    def __init__(self, model: ModelSpec, quantize: int | None = None, **options):
         self.model = model
+        self.quantize = quantize  # None = native fp8; 4/8 = mflux quantizes on load
         self.options = options
         # Heavy: load the model once and keep it warm. Imported lazily here so
         # the factory never imports mflux unless the MLX backend is selected.
@@ -33,6 +34,7 @@ class MlxEngine:
             self._generator = Ideogram4(
                 model_path=str(model.path),
                 model_config=ModelConfig.ideogram4_fp8(),
+                quantize=quantize,
             )
         except ValueError as exc:
             raise RuntimeError(
