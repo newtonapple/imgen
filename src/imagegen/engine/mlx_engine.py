@@ -1,18 +1,21 @@
 """MLX backend (Apple Silicon) via mflux.
 
-Loads the Ideogram-4 weights once, keeps the model warm in unified memory, and
-generates one image per `generate` call.
-
-Implementation pending the MLX spike: wraps mflux's in-process Ideogram-4
-generator (mflux @ ideogram-mlx-forge-loader). The weights directory auto-detects
-precision (bf16 / int8) from `split_model.json`. Preset names match the reference
-package (V4_QUALITY_48 / V4_DEFAULT_20 / V4_TURBO_12).
+Loads the Ideogram-4 weights once (warm in unified memory) and generates one
+image per `generate` call. Uses the official HF fp8 checkpoint layout, which
+mflux loads directly. See docs/notes/mflux-ideogram4-api.md for the API.
 """
 
 from __future__ import annotations
 
+import json
+import random
+import time
+
+from ..caption import validate_caption
 from ..config import ModelSpec
 from .base import GenerationResult
+
+_SEED_MAX = 2**31 - 1
 
 
 class MlxEngine:
@@ -21,9 +24,15 @@ class MlxEngine:
     def __init__(self, model: ModelSpec, **options):
         self.model = model
         self.options = options
-        self._generator = None  # lazily-loaded mflux generator, kept warm
-        # TODO(mlx-spike): import the mflux Ideogram-4 generator and load
-        # `model.path` into memory once here.
+        # Heavy: load the model once and keep it warm. Imported lazily here so
+        # the factory never imports mflux unless the MLX backend is selected.
+        from mflux.models.common.config import ModelConfig
+        from mflux.models.ideogram4 import Ideogram4
+
+        self._generator = Ideogram4(
+            model_path=str(model.path),
+            model_config=ModelConfig.ideogram4_fp8(),
+        )
 
     def generate(
         self,
@@ -34,8 +43,27 @@ class MlxEngine:
         preset: str = "V4_DEFAULT_20",
         seed: int | None = None,
     ) -> GenerationResult:
-        raise NotImplementedError(
-            "MlxEngine.generate is pending the MLX spike: drive mflux's in-process "
-            "Ideogram-4 generator (the mflux-generate-ideogram4 equivalent), feeding "
-            "the JSON caption as the prompt."
+        caption_dict = caption if isinstance(caption, dict) else json.loads(caption)
+        validate_caption(caption_dict)  # warn-not-fail
+        if seed is None:
+            seed = random.randint(0, _SEED_MAX)
+
+        t0 = time.time()
+        result = self._generator.generate_image(
+            prompt=caption_dict,
+            seed=seed,
+            width=width,
+            height=height,
+            preset=preset,
+        )
+        image = getattr(result, "image", result)  # GeneratedImage wraps a PIL image
+        return GenerationResult(
+            image=image,
+            seed=seed,
+            width=width,
+            height=height,
+            preset=preset,
+            caption=caption_dict,
+            backend="mlx",
+            duration_s=time.time() - t0,
         )
