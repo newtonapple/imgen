@@ -36,15 +36,17 @@ external volume / the Spark and are referenced by path (`ModelSpec.path`, or the
 
 ## Install
 
-`make install` creates an in-project virtualenv (`.venv/`) and installs the
-package (editable) plus the platform backend extra — which also installs the
+`make install` creates the virtualenv at `~/.venvs/imagegen` (kept **outside**
+this iCloud-synced repo, so uv clones packages from its global cache with no byte
+duplication and iCloud never syncs it; override with `IMAGEGEN_VENV`) and installs
+the package (editable) plus the platform backend extra — which also installs the
 `imagegen` CLI:
 
 ```bash
-make install    # .venv + imagegen[mlx] on Apple Silicon, imagegen[cuda] on Linux
+make install    # ~/.venvs/imagegen + imagegen[mlx] on Apple Silicon, imagegen[cuda] on Linux
 make test       # unit tests (no weights needed)
 make platform   # print detected platform + default backend
-make clean       # remove .venv
+make clean      # remove the venv
 ```
 
 To use the library/CLI directly (the `imagegen` console script ships with the

@@ -1,11 +1,12 @@
-# In-project virtualenv. Created by `make install`.
-VENV := .venv
-PY := $(VENV)/bin/python
+# Project venv lives OUTSIDE iCloud so uv hardlinks from its global cache (no
+# duplicated bytes) and iCloud never syncs it. Override with IMAGEGEN_VENV.
+IMAGEGEN_VENV ?= $(HOME)/.venvs/imagegen
+PY := $(IMAGEGEN_VENV)/bin/python
 
 .PHONY: install test lint platform clean
 
-# Create .venv and install imagegen (editable) + the platform backend extra.
-# This also installs the `imagegen` CLI entry point into the venv.
+# Create the venv (outside iCloud) and install imagegen (editable) + the platform
+# backend extra. Also installs the `imagegen` CLI entry point into the venv.
 install:
 	./scripts/setup.sh
 
@@ -19,4 +20,4 @@ platform:
 	$(PY) -m imagegen.cli platform
 
 clean:
-	rm -rf $(VENV)
+	rm -rf "$(IMAGEGEN_VENV)"
