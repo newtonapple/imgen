@@ -78,17 +78,30 @@ imagegen magic-prompt "a ginger cat wizard" \
   --magic-model "codex - gpt-5.5" \
   --out caption.json
 
-# Generate from an existing caption JSON
+# Generate from an existing caption JSON (int8 via --quantize 8; default keeps fp8)
 imagegen generate \
   --caption caption.json \
-  --backend mlx \
   --seed 42 \
-  --model-path /Volumes/PRO-G40/data/models/image-gen/ideogram-4-mlx-q8 \
+  --model-path /Volumes/PRO-G40/data/models/image-gen/ideogram-4-fp8 \
+  --quantize 8 \
   --out out.png
 
 # Show detected platform + default backend
 imagegen platform
 ```
+
+### Model & precision
+
+There is **one model directory** — the official `ideogram-ai/ideogram-4-fp8` checkpoint
+(it serves both the Mac via mflux and the Spark via the PyTorch pipeline). Precision
+variants come from quantizing it **on load** with `--quantize`:
+
+- *(default)* — native fp8
+- `--quantize 8` — int8 (equivalent to the MLXBits "q8" build)
+- `--quantize 4` — 4-bit (smallest/fastest)
+
+> The pre-converted `MLXBits/ideogram-4-mlx*` builds are **not** loadable by released
+> mflux (their flat-layout loader lives only in an unmerged PR) — use fp8 + `--quantize`.
 
 ### Selecting a magic-prompt provider/model
 
