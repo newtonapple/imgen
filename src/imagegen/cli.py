@@ -99,6 +99,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="path to model weights (overrides IMAGEGEN_WEIGHTS_ROOT)",
     )
     gen.add_argument("--out", required=True, help="output image path")
+    gen.add_argument(
+        "--worker",
+        default=None,
+        metavar="SOCKET",
+        help="delegate to a warm worker at this Unix socket path",
+    )
 
     # -- run -----------------------------------------------------------------
     run = sub.add_parser("run", help="magic-prompt + generate in one shot")
@@ -129,6 +135,35 @@ def _build_parser() -> argparse.ArgumentParser:
         "--caption",
         default=None,
         help="save intermediate caption JSON to this path",
+    )
+    run.add_argument(
+        "--worker",
+        default=None,
+        metavar="SOCKET",
+        help="delegate to a warm worker at this Unix socket path",
+    )
+
+    # -- serve ---------------------------------------------------------------
+    srv = sub.add_parser(
+        "serve",
+        help="start a warm worker that listens on a Unix socket",
+    )
+    srv.add_argument(
+        "--socket",
+        required=True,
+        metavar="PATH",
+        help="Unix socket path to listen on",
+    )
+    srv.add_argument(
+        "--model-path",
+        default=None,
+        dest="model_path",
+        help="path to model weights (overrides IMAGEGEN_WEIGHTS_ROOT)",
+    )
+    srv.add_argument(
+        "--model",
+        default="codex - gpt-5.5",
+        help="magic-prompt model string (default: 'codex - gpt-5.5')",
     )
 
     return parser
@@ -171,6 +206,27 @@ def main(argv: list[str] | None = None) -> int:
             sys.stderr.write(
                 "warning: no --seed given; re-seeding will likely change the image substantially\n"
             )
+        if args.worker:
+            from .worker import send_request
+
+            caption = json.loads(Path(args.caption).read_text())
+            resp = send_request(
+                args.worker,
+                {
+                    "op": "generate",
+                    "caption": caption,
+                    "width": args.width,
+                    "height": args.height,
+                    "preset": args.preset,
+                    "seed": args.seed,
+                    "output_path": args.out,
+                },
+            )
+            if not resp["ok"]:
+                sys.stderr.write(f"worker error: {resp['error']}\n")
+                return 1
+            print(json.dumps({**resp, "out": args.out}, indent=2))
+            return 0
         caption = json.loads(Path(args.caption).read_text())
         engine = _build_engine(args.model_path)
         result = engine.generate(
@@ -203,6 +259,27 @@ def main(argv: list[str] | None = None) -> int:
             sys.stderr.write(
                 "warning: no --seed given; re-seeding will likely change the image substantially\n"
             )
+        if args.worker:
+            from .worker import send_request
+
+            req: dict = {
+                "op": "run",
+                "prompt": args.prompt,
+                "width": args.width,
+                "height": args.height,
+                "preset": args.preset,
+                "seed": args.seed,
+                "target_elements": args.target_elements,
+                "output_path": args.out,
+            }
+            resp = send_request(args.worker, req)
+            if not resp["ok"]:
+                sys.stderr.write(f"worker error: {resp['error']}\n")
+                return 1
+            if args.caption and resp.get("caption"):
+                Path(args.caption).write_text(json.dumps(resp["caption"], indent=2))
+            print(json.dumps({**resp, "out": args.out}, indent=2))
+            return 0
         from .pipeline import Pipeline
 
         provider = _build_provider(args.model)
@@ -233,6 +310,18 @@ def main(argv: list[str] | None = None) -> int:
                 indent=2,
             )
         )
+        return 0
+
+    # ---- serve -------------------------------------------------------------
+    if args.cmd == "serve":
+        from .pipeline import Pipeline
+        from .worker import serve as worker_serve
+
+        provider = _build_provider(args.model)
+        engine = _build_engine(args.model_path)
+        pipeline = Pipeline(engine=engine, magic_prompt=provider)
+        sys.stderr.write(f"worker listening on {args.socket}\n")
+        worker_serve(args.socket, pipeline)
         return 0
 
     parser.print_help()
