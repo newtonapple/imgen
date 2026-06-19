@@ -14,10 +14,10 @@ from ..platform import Backend, default_backend
 
 @click.command("gen", context_settings={"ignore_unknown_options": True})
 @click.option("-p", "--prompt", default=None, help="text prompt (the model expands/uses it)")
-@click.option("--width", type=int, default=1024, show_default=True)
-@click.option("--height", type=int, default=1024, show_default=True)
+@click.option("-w", "--width", type=int, default=1024, show_default=True)
+@click.option("-h", "--height", type=int, default=1024, show_default=True)
 @click.option("--seed", type=int, default=None, help="RNG seed (omit = random)")
-@click.option("--out", required=True, type=click.Path(), help="output image path")
+@click.option("-o", "--out", required=True, type=click.Path(), help="output image path")
 @click.option("--model-path", "model_path", default=None, help="override the model's weights path")
 @click.option(
     "--backend",

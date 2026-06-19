@@ -326,3 +326,50 @@ def test_serve_unsupported_backend_clean_error(monkeypatch, tmp_path):
     assert r.exit_code != 0
     assert "does not support" in r.output
     assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+def test_gen_short_flags_w_h_o(monkeypatch, tmp_path):
+    """-w / -h / -o are aliases for --width / --height / --out on gen."""
+    import imagegen.cli.gen as genmod
+    from imagegen.platform import Backend
+
+    seen = {}
+
+    class FakeImg:
+        def save(self, p):
+            open(p, "wb").close()
+
+    class FakeResult:
+        image = FakeImg()
+        seed = 1
+        width = 256
+        height = 256
+        preset = None
+        backend = "mlx"
+        duration_s = 0.0
+
+    class FakeModel:
+        name = "ideogram4"
+        aliases = []
+        description = ""
+        supported_backends = [Backend.MLX]
+        model_options = genmod_options_for_test()
+
+        def default_weights_path(self, cfg):
+            return None
+
+        def build_pipeline(self, *, weights_path, backend, **opts):
+            return "P"
+
+        def run_one(self, pipeline, *, prompt, width, height, seed, **opts):
+            seen["wh"] = (width, height)
+            return FakeResult()
+
+    monkeypatch.setattr(genmod.models, "get", lambda name: FakeModel())
+    monkeypatch.setattr(genmod, "resolve_weights_path", lambda name, override, cfg: tmp_path / "w")
+
+    out = tmp_path / "o.png"
+    r = run(["gen", "-p", "x", "-w", "256", "-h", "256", "-o", str(out), "ideogram4"])
+    assert r.exit_code == 0, r.output
+    assert seen["wh"] == (256, 256)
+    assert out.exists()
