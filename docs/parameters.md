@@ -7,23 +7,56 @@ separate nodes in ComfyUI.
 
 ## CLI parameters
 
-Subcommands: `platform`, `magic-models`, `magic-prompt`, `generate`, `run`, `serve`.
+Commands: `ig gen`, `ig serve`, `ig model`, `ig platform`.
 
-| Parameter | Subcommands | Type / default | Meaning |
-|---|---|---|---|
-| `prompt` (positional) | magic-prompt, run | str | The plain-language idea. The magic-prompt LLM expands it into the structured JSON caption. |
-| `--width` / `--height` | magic-prompt, generate, run | int, `1024` | Output size in px. Rounded to a multiple of 16, floored at 256 (range 256–2048). Sets the aspect ratio the layout is composed for. |
-| `--preset` | generate, run | `V4_DEFAULT_20` \| `V4_TURBO_12` \| `V4_QUALITY_48` | Sampler bundle — step count + guidance schedule + noise-schedule (`mu`/`std`). See *Presets* below. |
-| `--seed` | generate, run | int, *random* | RNG seed. Same seed + caption + params ⇒ reproducible (and keeps composition stable when editing). Omit ⇒ random (a warning is printed, since re-seeding changes the image substantially). |
-| `--magic-model` | magic-prompt, run, serve | str, `"codex - gpt-5.5"` | Which LLM turns text → JSON caption. Run `imagegen magic-models` to list choices (`codex - <model>` or `pi - <provider> - <model>`). |
-| `--target-elements` | magic-prompt, run | int, `0` (=auto) | Force ~N entries in `compositional_deconstruction.elements`. 0 lets the LLM choose. |
-| `--model-path` | generate, run, serve | path | Path to the model weights dir (the `ideogram-4-fp8` checkpoint). Falls back to `IMAGEGEN_WEIGHTS_ROOT`. |
-| `--backend` | generate, run | `mlx` \| `torch`, *auto* | Inference backend. Auto-detected from the platform (MLX on Apple Silicon, PyTorch/CUDA on the Spark). |
-| `--quantize` | generate, run, serve | `4` \| `8`, *none* | MLX only: quantize the fp8 weights to N bits on load. `8` = int8 (faster, ~same memory); `4` = 4-bit (faster, ~½ transformer memory, some quality loss); default keeps fp8. |
-| `--out` | magic-prompt, generate, run | path | Output: image file (generate/run) or caption JSON (magic-prompt; defaults to stdout if omitted). |
-| `--caption` | generate (required), run | path | generate: the input caption JSON. run: optional path to save the intermediate caption. |
-| `--worker` | generate, run | socket path | Delegate the job to an already-running warm worker (see `serve`) instead of loading the model in-process. |
-| `--socket` | serve (required) | path | Unix socket the worker listens on. |
+### `ig gen` — generate an image
+
+| Parameter | Type / default | Meaning |
+|---|---|---|
+| `-p` / `--prompt` | str | Plain-text prompt to expand into a structured JSON caption. Optional if `--caption` is provided. |
+| `--width` | int, `1024` | Output width in px. Rounded to a multiple of 16, floored at 256 (range 256–2048). |
+| `--height` | int, `1024` | Output height in px. Rounded to a multiple of 16, floored at 256 (range 256–2048). |
+| `--seed` | int, *random* | RNG seed. Same seed + caption + params ⇒ reproducible. Omit ⇒ random. |
+| `--out` | path | Output image file. |
+| `--model-path` | path | Path to the model weights dir (the `ideogram-4-fp8` checkpoint). Falls back to `IMAGEGEN_WEIGHTS_ROOT`. |
+| `--backend` | `mlx` \| `torch`, *auto* | Inference backend. Auto-detected from the platform. |
+| `MODEL` (positional) | str | Model to use (e.g., `ideogram4`). |
+
+### `ig gen` — ideogram4 model options (after `--`)
+
+| Option | Type / default | Meaning |
+|---|---|---|
+| `--preset` | `V4_DEFAULT_20` \| `V4_TURBO_12` \| `V4_QUALITY_48` | Sampler bundle — step count + guidance schedule + noise-schedule. See *Presets* below. |
+| `--quantize` | `4` \| `8`, *none* | Quantize the fp8 weights to N bits on load. `8` = int8 (faster); `4` = 4-bit (fastest, ~½ transformer memory); default keeps fp8. |
+| `--magic-model` | str, `"codex - gpt-5.5"` | Which LLM turns text → JSON caption (`codex - <model>` or `pi - <provider> - <model>`). |
+| `--target-elements` | int, `0` (=auto) | Force ~N entries in `compositional_deconstruction.elements`. 0 lets the LLM choose. |
+| `--caption` | path | Path to a prebuilt caption JSON file. If provided, `--prompt` is ignored. |
+
+### `ig serve` — warm a worker on a Unix socket
+
+| Parameter | Type / default | Meaning |
+|---|---|---|
+| `--socket` | path (required) | Unix socket the worker listens on. |
+| `--log` | `debug` \| `info` \| `warning` \| `error`, *info* | Log level. |
+| `--model-path` | path | Path to the model weights dir. Falls back to `IMAGEGEN_WEIGHTS_ROOT`. |
+| `--backend` | `mlx` \| `torch`, *auto* | Inference backend. Auto-detected from the platform. |
+| `MODEL` (positional) | str | Model to use (e.g., `ideogram4`). |
+
+### `ig serve` — ideogram4 model options (after `--`)
+
+Same as `ig gen` (see above): `--preset`, `--quantize`, `--magic-model`, `--target-elements`, `--caption`.
+
+### `ig model` — inspect and configure models
+
+| Subcommand | Arguments | Meaning |
+|---|---|---|
+| `ig model list` | — | List all available models. |
+| `ig model show` | `<model>` | Show options, defaults, and path for a specific model (e.g., `ideogram4`). |
+| `ig model set-path` | `<model> <path>` | Register the path to a model's weights directory. Persists to config. |
+
+### `ig platform` — detect platform and default backend
+
+No arguments. Prints the detected platform (Apple Silicon / Linux) and default backend (MLX / PyTorch).
 
 ## Generation parameters (what the presets/engine set)
 

@@ -40,7 +40,7 @@ external volume / the Spark and are referenced by path (`ModelSpec.path`, or the
 this iCloud-synced repo, so uv clones packages from its global cache with no byte
 duplication and iCloud never syncs it; override with `IMAGEGEN_VENV`) and installs
 the package (editable) plus the platform backend extra — which also installs the
-`imagegen` CLI:
+`ig` CLI:
 
 ```bash
 make install    # ~/.venvs/imagegen + imagegen[mlx] on Apple Silicon, imagegen[cuda] on Linux
@@ -51,43 +51,39 @@ make platform   # print detected platform + default backend
 make clean      # remove the venv
 ```
 
-To use the library/CLI directly (the `imagegen` console script ships with the
+To use the library/CLI directly (the `ig` console script ships with the
 package via `[project.scripts]`):
 
 ```bash
 pip install ".[mlx]"     # Apple Silicon (MLX backend)
 pip install ".[cuda]"    # Linux / DGX Spark (PyTorch backend)
-imagegen --help
+ig --help
 ```
 
 ## CLI Usage
 
 ```bash
-# List selectable magic-prompt providers/models
-imagegen magic-models
+# one-time: tell ig where the weights are
+ig model set-path ideogram4 /Volumes/PRO-G40/data/models/image-gen/ideogram-4-fp8
 
-# End-to-end: prompt -> magic-prompt -> image
-imagegen run "a ginger cat wizard" \
-  --magic-model "codex - gpt-5.5" \
-  --width 1024 --height 1024 --preset V4_DEFAULT_20 --seed 42 \
-  --model-path /Volumes/PRO-G40/data/models/image-gen/ideogram-4-fp8 \
-  --out out.png
+# end-to-end
+ig gen -p "a ginger cat wizard" --width 768 --height 768 --seed 42 --out out.png \
+   ideogram4 -- --preset V4_DEFAULT_20
 
-# Just expand a prompt to caption JSON (inspect the structured output)
-imagegen magic-prompt "a ginger cat wizard" \
-  --magic-model "codex - gpt-5.5" \
-  --out caption.json
+# int8 on load
+ig gen -p "..." --out out.png ideogram4 -- --quantize 8
 
-# Generate from an existing caption JSON (int8 via --quantize 8; default keeps fp8)
-imagegen generate \
-  --caption caption.json \
-  --seed 42 \
-  --model-path /Volumes/PRO-G40/data/models/image-gen/ideogram-4-fp8 \
-  --quantize 8 \
-  --out out.png
+# from a prebuilt caption
+ig gen --out out.png ideogram4 -- --caption caption.json
 
-# Show detected platform + default backend
-imagegen platform
+# list / inspect models
+ig model list
+ig model show ideogram4
+
+# warm worker
+ig serve --socket /tmp/ig.sock ideogram4 -- --preset V4_DEFAULT_20
+
+ig platform
 ```
 
 ### Model & precision
@@ -105,11 +101,13 @@ variants come from quantizing it **on load** with `--quantize`:
 
 ### Selecting a magic-prompt provider/model
 
-`imagegen magic-models` lists all available choices.  Pass one to `--magic-model`:
+`--magic-model` is now an ideogram4 option (after `--`). Pass one to `-- --magic-model`:
 
 - `codex - gpt-5.5` / `codex - gpt-5.4` / `codex - gpt-5.4-mini` — local Codex CLI
 - `pi - <provider> - <model-id>` — pi CLI (reads `~/.pi/agent/models.json`;
   override path with `PI_MODELS_JSON` env var)
+
+Run `ig model show ideogram4` to see all available options and their defaults.
 
 Full parameter reference (every CLI flag, presets, and the model components —
 Qwen3-VL text encoder, Flux2 VAE, transformers): **[docs/parameters.md](docs/parameters.md)**.
