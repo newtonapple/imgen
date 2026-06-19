@@ -26,5 +26,10 @@ runs/
 !docs/**/*.png
 !docs/**/*.jpg
 
+# Local planning docs — kept on disk, not tracked (only docs/parameters.md is committed)
+docs/design/
+docs/notes/
+docs/plans/
+
 # OS / editor
 .DS_Store
