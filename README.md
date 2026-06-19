@@ -112,7 +112,7 @@ variants come from quantizing it **on load** with `--quantize`:
   override path with `PI_MODELS_JSON` env var)
 
 Full parameter reference (every CLI flag, presets, and the model components —
-Qwen3-VL text encoder, Flux2 VAE, transformers): **[docs/reference/parameters.md](docs/reference/parameters.md)**.
+Qwen3-VL text encoder, Flux2 VAE, transformers): **[docs/parameters.md](docs/parameters.md)**.
 
 ## Status
 
