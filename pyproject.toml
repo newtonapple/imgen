@@ -3,7 +3,7 @@ name = "imagegen"
 version = "0.1.0"
 description = "Ideogram-4 image-generation pipeline: magic-prompt -> structured JSON -> image, with pluggable inference backends (MLX on Apple Silicon, PyTorch/CUDA on the DGX Spark)."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
   "pillow>=10.0",
 ]
