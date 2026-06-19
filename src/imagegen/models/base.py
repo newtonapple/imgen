@@ -1,4 +1,5 @@
 """Model plugin protocol. Each model registers one of these."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -24,4 +25,6 @@ class Model(Protocol):
 
     def build_pipeline(self, *, weights_path: Path, backend: Backend, **opts): ...
 
-    def run_one(self, pipeline, *, prompt: str, width: int, height: int, seed: int | None, **opts): ...
+    def run_one(
+        self, pipeline, *, prompt: str, width: int, height: int, seed: int | None, **opts
+    ): ...

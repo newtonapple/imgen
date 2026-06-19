@@ -1,4 +1,5 @@
 """Model registry. Importing a model module registers it via register()."""
+
 from __future__ import annotations
 
 from .base import Backend, Model
@@ -16,7 +17,9 @@ def get(name_or_alias: str) -> Model:
         return _REGISTRY[name_or_alias]
     except KeyError:
         names = sorted({m.name for m in _REGISTRY.values()})
-        raise KeyError(f"Unknown model {name_or_alias!r}. Available: {', '.join(names) or '(none)'}")
+        raise KeyError(
+            f"Unknown model {name_or_alias!r}. Available: {', '.join(names) or '(none)'}"
+        )
 
 
 def all_models() -> list[Model]:

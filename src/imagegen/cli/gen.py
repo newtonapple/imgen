@@ -54,17 +54,10 @@ def gen(prompt, width, height, seed, out, model_path, backend, model_name, model
     pipeline = model.build_pipeline(weights_path=weights, backend=be, **opts)
     result = model.run_one(pipeline, prompt=prompt, width=width, height=height, seed=seed, **opts)
     result.image.save(out)
-    json.dump(
-        {
-            "seed": result.seed,
-            "width": result.width,
-            "height": result.height,
-            "preset": result.preset,
-            "backend": result.backend,
-            "duration_s": result.duration_s,
-            "out": out,
-        },
-        sys.stdout,
-        indent=2,
-    )
+    summary = {
+        field: getattr(result, field, None)
+        for field in ("seed", "width", "height", "preset", "backend", "duration_s")
+    }
+    summary["out"] = out
+    json.dump(summary, sys.stdout, indent=2)
     sys.stdout.write("\n")

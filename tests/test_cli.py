@@ -124,3 +124,77 @@ def test_gen_routes_globals_and_model_opts(monkeypatch, tmp_path):
     assert seen["run"]["prompt"] == "a cat"
     assert seen["run"]["preset"] == "V4_TURBO_12"
     assert seen["build"]["backend"] == Backend.MLX
+
+
+def test_gen_result_missing_preset_attribute(monkeypatch, tmp_path):
+    """Regression test: gen should handle result objects without a .preset attribute."""
+    import imagegen.cli.gen as genmod
+    from imagegen.platform import Backend
+    import json
+
+    class FakeImg:
+        size = (512, 512)
+
+        def save(self, p):
+            open(p, "wb").close()
+
+    class FakeResultMissingPreset:
+        """Result object without .preset attribute (model-agnostic)."""
+
+        image = FakeImg()
+        seed = 123
+        width = 512
+        height = 512
+        backend = "torch"
+        duration_s = 2.5
+
+    class FakeModel:
+        name = "testmodel"
+        aliases = []
+        description = ""
+        supported_backends = [Backend.TORCH]
+        model_options = genmod_options_for_test()
+
+        def default_weights_path(self, cfg):
+            return None
+
+        def build_pipeline(self, *, weights_path, backend, **opts):
+            return "PIPE"
+
+        def run_one(self, pipeline, *, prompt, width, height, seed, **opts):
+            return FakeResultMissingPreset()
+
+    monkeypatch.setattr(genmod.models, "get", lambda name: FakeModel())
+    monkeypatch.setattr(genmod, "resolve_weights_path", lambda name, override, cfg: tmp_path / "w")
+
+    out = tmp_path / "test.png"
+    r = run(
+        [
+            "gen",
+            "-p",
+            "test prompt",
+            "--width",
+            "512",
+            "--height",
+            "512",
+            "--seed",
+            "123",
+            "--out",
+            str(out),
+            "--backend",
+            "torch",
+            "testmodel",
+        ]
+    )
+    assert r.exit_code == 0, r.output
+    assert out.exists()
+
+    # Parse JSON output
+    output_json = json.loads(r.output)
+    assert output_json["preset"] is None
+    assert output_json["seed"] == 123
+    assert output_json["width"] == 512
+    assert output_json["height"] == 512
+    assert output_json["backend"] == "torch"
+    assert output_json["duration_s"] == 2.5
+    assert output_json["out"] == str(out)
