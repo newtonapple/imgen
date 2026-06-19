@@ -13,7 +13,7 @@ __pycache__/
 *.ckpt
 *.bin
 *.pt
-models/
+/models/
 weights/
 .hf-cache/
 
