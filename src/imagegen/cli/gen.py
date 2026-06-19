@@ -29,7 +29,10 @@ from ..platform import Backend, default_backend
 @click.argument("model_args", nargs=-1, type=click.UNPROCESSED)
 def gen(prompt, width, height, seed, out, model_path, backend, model_name, model_args):
     """ig gen [globals] <model> -- [model opts]"""
-    model = models.get(model_name)
+    try:
+        model = models.get(model_name)
+    except KeyError as exc:
+        raise click.ClickException(str(exc)) from exc
 
     args = list(model_args)
     if args and args[0] == "--":

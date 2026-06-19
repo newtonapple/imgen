@@ -25,7 +25,10 @@ model_group.add_command(list_cmd, name="ls")
 @model_group.command("show")
 @click.argument("name")
 def show_cmd(name: str) -> None:
-    m = models.get(name)
+    try:
+        m = models.get(name)
+    except KeyError as exc:
+        raise click.ClickException(str(exc)) from exc
     cfg = Config.load()
     click.echo(f"name: {m.name}")
     click.echo(f"aliases: {', '.join(m.aliases) or '-'}")
@@ -44,7 +47,10 @@ model_group.add_command(show_cmd, name="get")
 @click.argument("name")
 @click.argument("path", type=click.Path())
 def set_path_cmd(name: str, path: str) -> None:
-    models.get(name)  # validate the model exists
+    try:
+        models.get(name)  # validate the model exists
+    except KeyError as exc:
+        raise click.ClickException(str(exc)) from exc
     cfg = Config.load()
     cfg.set_model_path(name, path)
     cfg.save()

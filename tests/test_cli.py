@@ -245,3 +245,84 @@ def test_gen_result_missing_preset_attribute(monkeypatch, tmp_path):
     assert output_json["backend"] == "torch"
     assert output_json["duration_s"] == 2.5
     assert output_json["out"] == str(out)
+
+
+# ---------------------------------------------------------------------------
+# Fix 1: unknown model → clean Click error (no raw KeyError traceback)
+# ---------------------------------------------------------------------------
+
+
+def test_gen_unknown_model_clean_error(tmp_path):
+    """ig gen with an unknown model name should produce a clean Click error."""
+    r = run(["gen", "-p", "x", "--out", str(tmp_path / "o.png"), "nosuchmodel"])
+    assert r.exit_code != 0
+    assert "Unknown model" in r.output
+    # Must NOT be an uncaught exception (raw traceback / KeyError bubbling up)
+    assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+def test_serve_unknown_model_clean_error(tmp_path):
+    """ig serve with an unknown model name should produce a clean Click error."""
+    r = run(["serve", "--socket", str(tmp_path / "s.sock"), "nosuchmodel"])
+    assert r.exit_code != 0
+    assert "Unknown model" in r.output
+    assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+def test_model_show_unknown_model_clean_error():
+    """ig model show with an unknown name should produce a clean Click error."""
+    r = run(["model", "show", "nosuchmodel"])
+    assert r.exit_code != 0
+    assert "Unknown model" in r.output
+    assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+def test_model_set_path_unknown_model_clean_error(tmp_path):
+    """ig model set-path with an unknown name should produce a clean Click error."""
+    r = run(["model", "set-path", "nosuchmodel", "/some/path"])
+    assert r.exit_code != 0
+    assert "Unknown model" in r.output
+    assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+# ---------------------------------------------------------------------------
+# Fix 2: serve must validate the backend like gen does
+# ---------------------------------------------------------------------------
+
+
+def test_serve_unsupported_backend_clean_error(monkeypatch, tmp_path):
+    """ig serve with an unsupported --backend should error cleanly (like gen does)."""
+    import imagegen.cli.serve as servemod
+    from imagegen.platform import Backend
+
+    class FakeModel:
+        name = "ideogram4"
+        aliases = []
+        description = ""
+        supported_backends = [Backend.MLX]
+        model_options = genmod_options_for_test()
+
+        def default_weights_path(self, cfg):
+            return None
+
+        def build_pipeline(self, *, weights_path, backend, **opts):
+            raise AssertionError("build_pipeline should not be called")
+
+    monkeypatch.setattr(servemod.models, "get", lambda name: FakeModel())
+    monkeypatch.setattr(
+        servemod, "resolve_weights_path", lambda name, override, cfg: tmp_path / "w"
+    )
+
+    r = run(
+        [
+            "serve",
+            "--socket",
+            str(tmp_path / "s.sock"),
+            "--backend",
+            "torch",
+            "ideogram4",
+        ]
+    )
+    assert r.exit_code != 0
+    assert "does not support" in r.output
+    assert r.exception is None or isinstance(r.exception, SystemExit)

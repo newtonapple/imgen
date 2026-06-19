@@ -25,7 +25,10 @@ from ..worker import serve as worker_serve
 @click.argument("model_args", nargs=-1, type=click.UNPROCESSED)
 def serve(socket_path, log_path, model_path, backend, model_name, model_args):
     """ig serve [serve globals] <model> -- [model opts]"""
-    model = models.get(model_name)
+    try:
+        model = models.get(model_name)
+    except KeyError as exc:
+        raise click.ClickException(str(exc)) from exc
     args = list(model_args)
     if args and args[0] == "--":
         args = args[1:]
@@ -33,6 +36,11 @@ def serve(socket_path, log_path, model_path, backend, model_name, model_args):
         opts = dict(ctx.params)
 
     be = Backend(backend) if backend else default_backend()
+    if be not in model.supported_backends:
+        raise click.ClickException(
+            f"{model.name} does not support backend {be.value}; supported: "
+            f"{', '.join(b.value for b in model.supported_backends)}"
+        )
     cfg = Config.load()
     weights = resolve_weights_path(model.name, model_path, cfg)
     pipeline = model.build_pipeline(weights_path=weights, backend=be, **opts)

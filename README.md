@@ -19,7 +19,7 @@ builds a warm, load-once **inference pipeline** (`ImageEngine`):
 ```python
 from imagegen import ModelSpec, create_pipeline
 
-model = ModelSpec.from_path("/Volumes/PRO-G40/data/models/image-gen/ideogram-4-mlx-q8")
+model = ModelSpec.from_path("/Volumes/PRO-G40/data/models/image-gen/ideogram-4-fp8")
 engine = create_pipeline(model)          # backend auto-detected (MLX here)
 result = engine.generate(caption, width=1024, height=1024, preset="V4_DEFAULT_20")
 result.image.save("out.png")
@@ -114,6 +114,5 @@ Qwen3-VL text encoder, Flux2 VAE, transformers): **[docs/parameters.md](docs/par
 
 ## Status
 
-Phase 1 scaffold: platform detection, config/model spec, the `ImageEngine`
-interface, and the factory are in place. Backend `generate()` bodies are stubbed
-pending the MLX spike (Mac) and Spark bring-up (CUDA).
+MLX backend (Apple Silicon via mflux) is implemented and validated end-to-end.
+PyTorch/CUDA backend is pending Spark bring-up.
