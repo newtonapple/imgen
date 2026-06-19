@@ -126,6 +126,53 @@ def test_gen_routes_globals_and_model_opts(monkeypatch, tmp_path):
     assert seen["build"]["backend"] == Backend.MLX
 
 
+def test_serve_builds_pipeline_and_calls_worker(monkeypatch, tmp_path):
+    import imagegen.cli.serve as servemod
+    from imagegen.platform import Backend
+
+    seen = {}
+
+    class FakeModel:
+        name = "ideogram4"
+        aliases = []
+        description = ""
+        supported_backends = [Backend.MLX]
+        model_options = genmod_options_for_test()
+
+        def default_weights_path(self, cfg):
+            return None
+
+        def build_pipeline(self, *, weights_path, backend, **opts):
+            seen["opts"] = opts
+            return "PIPE"
+
+    monkeypatch.setattr(servemod.models, "get", lambda name: FakeModel())
+    monkeypatch.setattr(
+        servemod, "resolve_weights_path", lambda name, override, cfg: tmp_path / "w"
+    )
+    monkeypatch.setattr(
+        servemod,
+        "worker_serve",
+        lambda socket, pipeline: seen.update(socket=socket, pipeline=pipeline),
+    )
+
+    r = run(
+        [
+            "serve",
+            "--socket",
+            str(tmp_path / "s.sock"),
+            "ideogram4",
+            "--",
+            "--preset",
+            "V4_TURBO_12",
+        ]
+    )
+    assert r.exit_code == 0, r.output
+    assert seen["pipeline"] == "PIPE"
+    assert seen["socket"] == str(tmp_path / "s.sock")
+    assert seen["opts"]["preset"] == "V4_TURBO_12"
+
+
 def test_gen_result_missing_preset_attribute(monkeypatch, tmp_path):
     """Regression test: gen should handle result objects without a .preset attribute."""
     import imagegen.cli.gen as genmod
