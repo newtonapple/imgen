@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "pillow>=10.0",
+  "click>=8.1",
 ]
 
 [project.optional-dependencies]
@@ -31,7 +32,7 @@ dev = [
 ]
 
 [project.scripts]
-imagegen = "imagegen.cli:main"
+ig = "imagegen.cli:main"
 
 [build-system]
 requires = ["hatchling>=1.24"]

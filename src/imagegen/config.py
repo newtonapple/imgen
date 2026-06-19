@@ -57,20 +57,30 @@ def weights_root() -> Path | None:
     return Path(v).expanduser() if v else None
 
 
-CONFIG_DIR = Path(os.environ.get("IG_CONFIG_DIR", Path.home() / ".config" / "ig"))
-CONFIG_PATH = CONFIG_DIR / "config.toml"
+def _config_dir() -> Path:
+    return Path(os.environ.get("IG_CONFIG_DIR", Path.home() / ".config" / "ig"))
+
+
+def _config_path() -> Path:
+    return _config_dir() / "config.toml"
+
+
+# Module-level constants computed at import time (kept for backward compat).
+# Prefer calling _config_path() directly when a live env-var value is needed.
+CONFIG_DIR = _config_dir()
+CONFIG_PATH = _config_path()
 
 
 class Config:
     """Reads/writes ~/.config/ig/config.toml (per-model default weights paths)."""
 
-    def __init__(self, data: dict | None = None, path: Path = CONFIG_PATH):
+    def __init__(self, data: dict | None = None, path: Path | None = None):
         self.data = data or {}
-        self.path = Path(path)
+        self.path = Path(path) if path is not None else _config_path()
 
     @classmethod
-    def load(cls, path: Path = CONFIG_PATH) -> "Config":
-        path = Path(path)
+    def load(cls, path: Path | None = None) -> "Config":
+        path = Path(path) if path is not None else _config_path()
         if path.exists():
             with open(path, "rb") as f:
                 return cls(tomllib.load(f), path)
