@@ -34,36 +34,16 @@ is just one caller.
 
 ```
 src/imgen/
-  cli/               # `ig` CLI (Click)
-    __main__.py      #   `python -m imgen.cli` entry (daemon/job self-spawn target)
-    model_cli.py     #   builds a Click group per registered model (gen/serve/stop/config)
-    actions.py       #   gen/serve/stop/config command bodies (daemon client)
-    model.py         #   `ig model` group: list / show / jobs / clean / stop-all
-  models/            # model registry + plugins — the extension point
-    base.py          #   the `Model` Protocol every model implements
-    __init__.py      #   register() / get() / all_models()
-    ideogram4.py     #   first model plugin
-  engine/            # inference backends (load weights, denoise, decode)
-    base.py          #   `ImageEngine` + `GenerationResult`
-    factory.py       #   create_pipeline(): model spec + backend -> engine
-    mlx_engine.py    #   MLX backend (mflux), Apple Silicon
-    torch_engine.py  #   PyTorch/CUDA backend, DGX Spark
-    resolution.py    #   width/height rounding + clamping
-  magic_prompt/      # text -> structured JSON caption (Ideogram-4-specific)
-    providers.py     #   provider factory + config resolution
-    cli_provider.py  #   codex / claude / pi (shell out, no key)
-    http_provider.py #   openai / anthropic / openrouter (stdlib urllib)
-    _caption_prompt.py, templates/   # prompt building + JSON extraction
-  pipeline.py        # Pipeline = engine + magic_prompt; the unit a worker holds warm
-  worker.py          # warm worker: one engine, one job at a time, NDJSON over a Unix socket
-  daemon.py          # one daemon per model: registry, liveness, auto-start, stop
-  jobs.py            # `--queue` background jobs: records, detached runner, clean
-  metadata.py        # `<out>.json` sidecar/summary builder (shared by gen + jobs)
-  config.py          # Config/Secrets (TOML) + runtime dirs / socket-path helpers
-  platform.py        # platform + default-backend detection
-  caption.py         # caption-schema validation helpers
-tests/               # pytest, one test_*.py per module (offline; real GPU behind @integration)
-scripts/setup.sh     # `make install`: build the venv + install imgen[extra]
+  cli/            # `ig` command-line interface (Click groups + action bodies)
+  models/         # model registry + plugins — the extension point (`Model` Protocol)
+  engine/         # inference backends (MLX / PyTorch-CUDA) + the create_pipeline factory
+  magic_prompt/   # text -> structured JSON caption providers (Ideogram-4-specific)
+  pipeline.py     # Pipeline = engine + magic_prompt — the warm, load-once unit
+  worker.py       # warm worker: one job at a time, NDJSON over a Unix socket
+  daemon.py       # one daemon per model: registry, liveness, auto-start, stop
+  jobs.py         # `--queue` background jobs: records, detached runner, clean
+  config.py       # Config/Secrets (TOML) + runtime dirs / socket-path helpers
+tests/            # pytest, one test_*.py per module (offline; real GPU behind @integration)
 ```
 
 **Adding a model:** implement the `Model` Protocol in `models/<name>.py`, call
