@@ -1,10 +1,10 @@
-"""`ig model` subgroup: list / show."""
+"""`ig model` subgroup: list / show / stop-all."""
 
 from __future__ import annotations
 
 import click
 
-from .. import models
+from .. import daemon, models
 from ..config import Config
 
 
@@ -15,8 +15,24 @@ def model_group() -> None:
 
 @model_group.command("list")
 def list_cmd() -> None:
+    live_by_model = {rec["model"]: rec for rec in daemon.list_daemons() if rec.get("live")}
     for m in sorted(models.all_models(), key=lambda x: x.name):
-        click.echo(f"{m.name}  (aliases: {', '.join(m.aliases) or '-'})  {m.description}")
+        rec = live_by_model.get(m.name)
+        status = f"running (pid {rec['pid']})" if rec is not None else "-"
+        click.echo(
+            f"{m.name}  (aliases: {', '.join(m.aliases) or '-'})  "
+            f"[daemon: {status}]  {m.description}"
+        )
+
+
+@model_group.command("stop-all")
+def stop_all_cmd() -> None:
+    """Stop all running model daemons."""
+    n = 0
+    for rec in daemon.list_daemons():
+        if daemon.stop(rec["model"]):
+            n += 1
+    click.echo(f"stopped {n} daemon(s)")
 
 
 model_group.add_command(list_cmd, name="ls")

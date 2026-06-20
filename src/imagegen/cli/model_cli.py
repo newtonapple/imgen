@@ -30,7 +30,7 @@ def build_model_group(model: Any) -> click.Group:
             "gen",
             params=gen_params,
             callback=gen_callback,
-            help="Generate one image (loads the model in-process).",
+            help="Generate one image via the warm daemon (auto-started if needed).",
             short_help="generate one image",
             epilog="Build options (quantize, backend, magic-prompt provider) come from "
             "`ig "
@@ -42,26 +42,33 @@ def build_model_group(model: Any) -> click.Group:
     )
 
     # --- serve ---------------------------------------------------------------
-    def serve_callback(socket_path: str, log_path: str | None) -> None:
-        actions.run_serve(model, socket_path, log_path)
+    def serve_callback(detach: bool) -> None:
+        actions.run_serve(model, detach)
 
     group.add_command(
         click.Command(
             "serve",
             params=[
                 click.Option(
-                    ["--socket", "socket_path"],
-                    required=True,
-                    type=click.Path(),
-                    help="Unix socket to listen on",
-                ),
-                click.Option(
-                    ["--log", "log_path"], default=None, type=click.Path(), help="log file"
+                    ["--detach", "-d"],
+                    is_flag=True,
+                    default=False,
+                    help="run the daemon in the background",
                 ),
             ],
             callback=serve_callback,
-            help="Run a warm worker in the foreground (reused build config from `config`).",
-            short_help="run a warm worker (foreground)",
+            help="Start the warm daemon (foreground; --detach to background).",
+            short_help="start the warm daemon",
+        )
+    )
+
+    # --- stop ----------------------------------------------------------------
+    group.add_command(
+        click.Command(
+            "stop",
+            callback=lambda: actions.run_stop(model),
+            help="Stop this model's daemon.",
+            short_help="stop the daemon",
         )
     )
 

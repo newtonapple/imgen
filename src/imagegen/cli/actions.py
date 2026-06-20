@@ -1,17 +1,19 @@
-"""Action bodies for the per-model CLI groups: gen (in-process), serve, config."""
+"""Action bodies for the per-model CLI groups: gen (daemon client), serve, stop, config."""
 
 from __future__ import annotations
 
-import json
+import json as _json
 import sys
+from pathlib import Path
 from typing import Any
 
 import click
 
-from ..config import Config, Secrets, resolve_weights_path
+from .. import daemon
+from ..config import Config, Secrets, resolve_weights_path, daemon_log_path
 from ..magic_prompt.providers import ALL_PROVIDERS
 from ..platform import Backend, default_backend
-from ..worker import serve as worker_serve
+from ..worker import stream_request
 
 
 def _resolve_backend(model: Any, config: Config) -> Backend:
@@ -25,37 +27,93 @@ def _resolve_backend(model: Any, config: Config) -> Backend:
     return be
 
 
-def run_gen(model: Any, out: str, gen_opts: dict[str, Any]) -> None:
+def _build_pipeline_for(model: Any) -> Any:
     config = Config.load()
     secrets = Secrets.load()
     be = _resolve_backend(model, config)
     weights = resolve_weights_path(model.name, None, config)
-    pipeline = model.build_pipeline(
-        weights_path=weights, backend=be, config=config, secrets=secrets
-    )
-    result = model.run_one(pipeline, **gen_opts)
-    result.image.save(out)
+    return model.build_pipeline(weights_path=weights, backend=be, config=config, secrets=secrets)
+
+
+def _render_progress(d: dict[str, Any]) -> None:
+    sys.stderr.write(f"\r[{d.get('phase', '')}] ".ljust(40))
+    sys.stderr.flush()
+
+
+def run_gen(model: Any, out: str, gen_opts: dict[str, Any]) -> None:
+    sock = daemon.ensure_daemon(model.name)  # auto-start + wait-ready
+    caption = gen_opts.get("caption")
+    if caption:
+        req: dict[str, Any] = {
+            "op": "generate",
+            "caption": _json.loads(Path(caption).read_text()),
+            "width": gen_opts["width"],
+            "height": gen_opts["height"],
+            "preset": gen_opts.get("preset", "V4_DEFAULT_20"),
+            "seed": gen_opts.get("seed"),
+            "output_path": out,
+        }
+    else:
+        req = {
+            "op": "run",
+            "prompt": gen_opts.get("prompt"),
+            "width": gen_opts["width"],
+            "height": gen_opts["height"],
+            "preset": gen_opts.get("preset", "V4_DEFAULT_20"),
+            "seed": gen_opts.get("seed"),
+            "target_elements": gen_opts.get("target_elements", 0),
+            "output_path": out,
+        }
+    result = stream_request(sock, req, _render_progress)
+    sys.stderr.write("\r".ljust(40) + "\r")
+    sys.stderr.flush()
+    if not result.get("ok"):
+        raise click.ClickException(str(result.get("error", "generation failed")))
+
     summary: dict[str, Any] = {
-        field: getattr(result, field, None)
-        for field in ("seed", "width", "height", "preset", "backend", "duration_s")
+        "seed": result.get("seed"),
+        "width": result.get("width"),
+        "height": result.get("height"),
+        "preset": result.get("preset"),
+        "backend": result.get("backend"),
+        "duration_s": result.get("duration_s"),
+        "out": out,
+        "model": model.name,
+        "prompt": gen_opts.get("prompt"),
+        "caption": result.get("caption"),
     }
-    summary["out"] = out
-    json.dump(summary, sys.stdout, indent=2)
+    Path(out + ".json").write_text(_json.dumps(summary, indent=2))  # sidecar
+    _json.dump(summary, sys.stdout, indent=2)
     sys.stdout.write("\n")
 
 
-def run_serve(model: Any, socket_path: str, log_path: str | None) -> None:
+def run_serve(model: Any, detach: bool) -> None:
+    if daemon.live_record(model.name) is not None:
+        rec = daemon.read_record(model.name)
+        pid = rec["pid"] if rec is not None else "?"
+        raise click.ClickException(
+            f"{model.name} is already running (pid {pid}). Stop it first:  ig {model.name} stop"
+        )
+    if detach:
+        daemon.ensure_daemon(model.name)
+        click.echo(f"{model.name} daemon started (log: {daemon_log_path(model.name)})")
+        return
     config = Config.load()
-    secrets = Secrets.load()
     be = _resolve_backend(model, config)
-    weights = resolve_weights_path(model.name, None, config)
-    pipeline = model.build_pipeline(
-        weights_path=weights, backend=be, config=config, secrets=secrets
+    quantize = config.model_quantize(model.name)
+    daemon.run_daemon(
+        model.name,
+        lambda: _build_pipeline_for(model),
+        backend=be.value,
+        quantize=quantize,
     )
-    log = open(log_path, "a") if log_path else sys.stderr  # noqa: SIM115
-    log.write(f"ig serve: {model.name} warm on {socket_path}\n")
-    log.flush()
-    worker_serve(socket_path, pipeline)
+
+
+def run_stop(model: Any) -> None:
+    if daemon.stop(model.name):
+        click.echo(f"{model.name}: stopped")
+    else:
+        click.echo(f"{model.name}: no daemon running")
 
 
 _CONFIG_SETTERS = {

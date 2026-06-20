@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any, Callable
 
 from click.testing import CliRunner, Result
 
@@ -43,91 +44,73 @@ def test_model_show_outputs_info() -> None:
 
 
 # ---------------------------------------------------------------------------
-# ig ideogram4 gen — per-request opts routed through run_one
+# ig ideogram4 gen — daemon client (monkeypatched)
 # ---------------------------------------------------------------------------
 
 
-def test_gen_routes_request_opts(monkeypatch, tmp_path) -> None:
-    monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
+def test_gen_streams_and_writes_sidecar(monkeypatch: Any, tmp_path: Any) -> None:
     import imagegen.cli.actions as actions
-    from imagegen import models
-    from imagegen.platform import Backend
+    from imagegen import daemon
 
-    m = models.get("ideogram4")
-    seen: dict[str, object] = {}
+    monkeypatch.setattr(daemon, "ensure_daemon", lambda name: "/tmp/fake.sock")
 
-    class FakeImg:
-        def save(self, p: str) -> None:
-            open(p, "wb").close()
+    def fake_stream(
+        sock: str,
+        req: dict[str, Any],
+        on_progress: Callable[[dict[str, Any]], None] | None = None,
+    ) -> dict[str, Any]:
+        if on_progress:
+            on_progress({"type": "progress", "phase": "sampling"})
+        open(req["output_path"], "wb").close()  # daemon would write the PNG
+        return {
+            "ok": True,
+            "seed": 42,
+            "width": 768,
+            "height": 768,
+            "preset": "V4_TURBO_12",
+            "backend": "mlx",
+            "duration_s": 1.0,
+            "caption": {"high_level_description": req.get("prompt")},
+        }
 
-    class FakeResult:
-        image = FakeImg()
-        seed = 42
-        width = 768
-        height = 768
-        preset = "V4_TURBO_12"
-        backend = "mlx"
-        duration_s = 1.0
-
-    monkeypatch.setattr(
-        m, "build_pipeline", lambda *, weights_path, backend, config, secrets: "PIPE"
-    )
-    monkeypatch.setattr(m, "run_one", lambda pipeline, **g: seen.update(g) or FakeResult())
-    monkeypatch.setattr(m, "supported_backends", [Backend.MLX])
-    monkeypatch.setattr(actions, "resolve_weights_path", lambda name, override, cfg: tmp_path / "w")
-
+    monkeypatch.setattr(actions, "stream_request", fake_stream)
     out = tmp_path / "o.png"
-    r = run(
-        [
-            "ideogram4",
-            "gen",
-            "-p",
-            "a cat",
-            "-w",
-            "768",
-            "--seed",
-            "42",
-            "-o",
-            str(out),
-            "--preset",
-            "V4_TURBO_12",
-        ]
-    )
+    r = run(["ideogram4", "gen", "-p", "a cat", "-w", "768", "-o", str(out)])
     assert r.exit_code == 0, r.output
-    assert out.exists()
-    assert seen["prompt"] == "a cat"
-    assert seen["preset"] == "V4_TURBO_12"
-    assert seen["width"] == 768
+    assert out.exists() and (tmp_path / "o.png.json").exists()
+    meta = json.loads((tmp_path / "o.png.json").read_text())
+    assert meta["caption"]["high_level_description"] == "a cat"
+    assert meta["model"] == "ideogram4"
+    assert meta["prompt"] == "a cat"
+    assert json.loads(r.stdout)["out"] == str(out)
 
 
-def test_gen_result_missing_preset_attribute(monkeypatch, tmp_path) -> None:
-    """gen prints model-agnostic JSON even when the result lacks a .preset attribute."""
-    monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
+def test_gen_with_seed_and_preset(monkeypatch: Any, tmp_path: Any) -> None:
     import imagegen.cli.actions as actions
-    from imagegen import models
-    from imagegen.platform import Backend
+    from imagegen import daemon
 
-    m = models.get("ideogram4")
+    monkeypatch.setattr(daemon, "ensure_daemon", lambda name: "/tmp/fake.sock")
+    seen: dict[str, Any] = {}
 
-    class FakeImg:
-        def save(self, p: str) -> None:
-            open(p, "wb").close()
+    def fake_stream(
+        sock: str,
+        req: dict[str, Any],
+        on_progress: Callable[[dict[str, Any]], None] | None = None,
+    ) -> dict[str, Any]:
+        seen.update(req)
+        open(req["output_path"], "wb").close()
+        return {
+            "ok": True,
+            "seed": req.get("seed"),
+            "width": req["width"],
+            "height": req["height"],
+            "preset": req.get("preset"),
+            "backend": "mlx",
+            "duration_s": 0.5,
+            "caption": None,
+        }
 
-    class FakeResultNoPreset:
-        image = FakeImg()
-        seed = 123
-        width = 512
-        height = 512
-        backend = "mlx"
-        duration_s = 2.5
-
-    monkeypatch.setattr(
-        m, "build_pipeline", lambda *, weights_path, backend, config, secrets: "PIPE"
-    )
-    monkeypatch.setattr(m, "run_one", lambda pipeline, **g: FakeResultNoPreset())
-    monkeypatch.setattr(m, "supported_backends", [Backend.MLX])
-    monkeypatch.setattr(actions, "resolve_weights_path", lambda name, override, cfg: tmp_path / "w")
-
+    monkeypatch.setattr(actions, "stream_request", fake_stream)
     out = tmp_path / "t.png"
     r = run(
         [
@@ -139,18 +122,126 @@ def test_gen_result_missing_preset_attribute(monkeypatch, tmp_path) -> None:
             "512",
             "--seed",
             "123",
+            "--preset",
+            "V4_TURBO_12",
             "-o",
             str(out),
         ]
     )
     assert r.exit_code == 0, r.output
-    assert out.exists()
-    output_json = json.loads(r.output)
-    assert output_json["preset"] is None
+    assert seen["seed"] == 123
+    assert seen["preset"] == "V4_TURBO_12"
+    assert seen["width"] == 512
+    output_json = json.loads(r.stdout)
     assert output_json["seed"] == 123
-    assert output_json["backend"] == "mlx"
-    assert output_json["duration_s"] == 2.5
     assert output_json["out"] == str(out)
+
+
+def test_gen_error_from_daemon(monkeypatch: Any, tmp_path: Any) -> None:
+    """When the daemon returns ok=False, gen exits non-zero with a clean error."""
+    import imagegen.cli.actions as actions
+    from imagegen import daemon
+
+    monkeypatch.setattr(daemon, "ensure_daemon", lambda name: "/tmp/fake.sock")
+    monkeypatch.setattr(
+        actions,
+        "stream_request",
+        lambda sock, req, on_progress=None: {"ok": False, "error": "OOM"},
+    )
+    out = tmp_path / "o.png"
+    r = run(["ideogram4", "gen", "-p", "x", "-o", str(out)])
+    assert r.exit_code != 0
+    assert "OOM" in r.output
+
+
+# ---------------------------------------------------------------------------
+# ig ideogram4 serve + stop
+# ---------------------------------------------------------------------------
+
+
+def test_serve_already_running_errors(monkeypatch: Any) -> None:
+    from imagegen import daemon
+
+    monkeypatch.setattr(daemon, "live_record", lambda name: {"pid": 999, "socket": "/tmp/x.sock"})
+    monkeypatch.setattr(
+        daemon,
+        "read_record",
+        lambda name: {"pid": 999, "socket": "/tmp/x.sock"},
+    )
+    r = run(["ideogram4", "serve"])
+    assert r.exit_code != 0
+    assert "already running" in r.output
+    assert "999" in r.output
+
+
+def test_serve_detach(monkeypatch: Any, tmp_path: Any) -> None:
+    from imagegen import daemon
+    from imagegen import config as cfg_mod
+
+    monkeypatch.setattr(daemon, "live_record", lambda name: None)
+    started: list[str] = []
+
+    def fake_ensure(name: str) -> str:
+        started.append(name)
+        return "/tmp/fake.sock"
+
+    monkeypatch.setattr(daemon, "ensure_daemon", fake_ensure)
+    monkeypatch.setattr(cfg_mod, "daemon_log_path", lambda name: tmp_path / f"{name}.log")
+    r = run(["ideogram4", "serve", "--detach"])
+    assert r.exit_code == 0, r.output
+    assert "ideogram4" in started
+    assert "ideogram4 daemon started" in r.output
+
+
+def test_stop_running_daemon(monkeypatch: Any) -> None:
+    from imagegen import daemon
+
+    stopped: list[str] = []
+
+    def fake_stop(name: str) -> bool:
+        stopped.append(name)
+        return True
+
+    monkeypatch.setattr(daemon, "stop", fake_stop)
+    r = run(["ideogram4", "stop"])
+    assert r.exit_code == 0, r.output
+    assert "ideogram4" in stopped
+    assert "stopped" in r.output
+
+
+def test_stop_no_daemon(monkeypatch: Any) -> None:
+    from imagegen import daemon
+
+    monkeypatch.setattr(daemon, "stop", lambda name: False)
+    r = run(["ideogram4", "stop"])
+    assert r.exit_code == 0, r.output
+    assert "no daemon" in r.output
+
+
+# ---------------------------------------------------------------------------
+# ig model stop-all
+# ---------------------------------------------------------------------------
+
+
+def test_model_stop_all(monkeypatch: Any) -> None:
+    from imagegen import daemon
+
+    monkeypatch.setattr(
+        daemon,
+        "list_daemons",
+        lambda: [{"model": "ideogram4", "pid": 1, "live": True}],
+    )
+    stopped: list[str] = []
+
+    def fake_stop(name: str) -> bool:
+        stopped.append(name)
+        return True
+
+    monkeypatch.setattr(daemon, "stop", fake_stop)
+    r = run(["model", "stop-all"])
+    assert r.exit_code == 0, r.output
+    assert "ideogram4" in stopped
+    assert "stopped 1" in r.output
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +249,7 @@ def test_gen_result_missing_preset_attribute(monkeypatch, tmp_path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_config_set_no_out_required(monkeypatch, tmp_path) -> None:
+def test_config_set_no_out_required(monkeypatch: Any, tmp_path: Any) -> None:
     monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
     r = run(["ideogram4", "config", "set", "magic-provider", "openrouter"])
     assert r.exit_code == 0, r.output
@@ -167,7 +258,7 @@ def test_config_set_no_out_required(monkeypatch, tmp_path) -> None:
     assert Config.load(tmp_path / "config.toml").magic_prompt_provider() == "openrouter"
 
 
-def test_config_set_key_writes_secrets(monkeypatch, tmp_path) -> None:
+def test_config_set_key_writes_secrets(monkeypatch: Any, tmp_path: Any) -> None:
     monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
     r = run(["ideogram4", "config", "set-key", "openrouter", "sk-x"])
     assert r.exit_code == 0, r.output
@@ -177,14 +268,14 @@ def test_config_set_key_writes_secrets(monkeypatch, tmp_path) -> None:
     assert s.api_key("openrouter") == "sk-x"
 
 
-def test_config_set_bogus_key_errors(monkeypatch, tmp_path) -> None:
+def test_config_set_bogus_key_errors(monkeypatch: Any, tmp_path: Any) -> None:
     monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
     r = run(["ideogram4", "config", "set", "bogus", "x"])
     assert r.exit_code != 0
     assert "bogus" in r.output or "unknown" in r.output.lower()
 
 
-def test_config_set_weights_path_persists(monkeypatch, tmp_path) -> None:
+def test_config_set_weights_path_persists(monkeypatch: Any, tmp_path: Any) -> None:
     monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
     r = run(["ideogram4", "config", "set", "weights-path", "/weights/ig4"])
     assert r.exit_code == 0, r.output
@@ -193,7 +284,7 @@ def test_config_set_weights_path_persists(monkeypatch, tmp_path) -> None:
     assert Config.load(tmp_path / "config.toml").model_path("ideogram4") is not None
 
 
-def test_config_set_invalid_value_rejected(monkeypatch, tmp_path) -> None:
+def test_config_set_invalid_value_rejected(monkeypatch: Any, tmp_path: Any) -> None:
     """A fixed-choice config key rejects an out-of-set value with the allowed values."""
     monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
     r = run(["ideogram4", "config", "set", "quantize", "9"])
@@ -215,7 +306,7 @@ def test_gen_missing_out_clean_error() -> None:
     assert r.exception is None or isinstance(r.exception, SystemExit)
 
 
-def test_gen_unknown_model_clean_error(tmp_path) -> None:
+def test_gen_unknown_model_clean_error(tmp_path: Any) -> None:
     """ig nosuch gen … → Click 'No such command', not a traceback."""
     r = run(["nosuch", "gen", "-p", "x", "-o", str(tmp_path / "o.png")])
     assert r.exit_code != 0
@@ -223,10 +314,10 @@ def test_gen_unknown_model_clean_error(tmp_path) -> None:
     assert r.exception is None or isinstance(r.exception, SystemExit)
 
 
-def test_gen_backend_unsupported_error(monkeypatch, tmp_path) -> None:
-    """Setting backend=torch via config then gen errors cleanly when only MLX is supported."""
+def test_serve_backend_unsupported_error(monkeypatch: Any, tmp_path: Any) -> None:
+    """serve (foreground) errors cleanly when the configured backend is unsupported."""
     monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
-    from imagegen import models
+    from imagegen import daemon, models
     from imagegen.platform import Backend
 
     m = models.get("ideogram4")
@@ -236,12 +327,10 @@ def test_gen_backend_unsupported_error(monkeypatch, tmp_path) -> None:
     r_cfg = run(["ideogram4", "config", "set", "backend", "torch"])
     assert r_cfg.exit_code == 0, r_cfg.output
 
-    import imagegen.cli.actions as actions
+    # No live daemon so serve tries foreground (hits _resolve_backend before building)
+    monkeypatch.setattr(daemon, "live_record", lambda name: None)
 
-    monkeypatch.setattr(actions, "resolve_weights_path", lambda name, override, cfg: tmp_path / "w")
-
-    out = tmp_path / "o.png"
-    r = run(["ideogram4", "gen", "-p", "x", "--seed", "1", "-o", str(out)])
+    r = run(["ideogram4", "serve"])
     assert r.exit_code != 0
     assert "does not support" in r.output
     assert r.exception is None or isinstance(r.exception, SystemExit)
