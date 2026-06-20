@@ -5,6 +5,18 @@ How we develop here. Read the **README first** — especially *Architecture*,
 the README is *what it is*. Keep this file short; link to README sections rather
 than restating them.
 
+## Branches & commits
+- **Never auto-commit on `main`.** Only commit when you are on a branch off `main`;
+  if you find yourself on `main`, stop and create a branch (or worktree) first.
+- **Before starting a feature, ASK where to develop** — a feature branch, a
+  worktree created with worktrunk (`wt`), or in the current branch without
+  committing (leave the changes for the user to review). Don't assume; wait for
+  the answer.
+- Prefer a feature branch or a `wt` worktree for any non-trivial change; use a
+  worktree (`wt`) when explicitly instructed.
+- **Use the `worktrunk` skill for all worktrunk / `wt` operations** (creating,
+  listing, switching, and cleaning up worktrees).
+
 ## Always
 - **TDD + green gate.** Write the test, then the code. Run `make style && make test`
   while iterating; the merge gate is `make lint` (ruff + `ruff format --check` +

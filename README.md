@@ -33,18 +33,26 @@ is just one caller.
 ## Project layout
 
 ```
-src/imgen/
-  cli/            # `ig` command-line interface (Click groups + action bodies)
-  models/         # model registry + plugins — the extension point (`Model` Protocol)
-  engine/         # inference backends (MLX / PyTorch-CUDA) + the create_pipeline factory
-  magic_prompt/   # text -> structured JSON caption providers (Ideogram-4-specific)
-  pipeline.py     # Pipeline = engine + magic_prompt — the warm, load-once unit
-  worker.py       # warm worker: one job at a time, NDJSON over a Unix socket
-  daemon.py       # one daemon per model: registry, liveness, auto-start, stop
-  jobs.py         # `--queue` background jobs: records, detached runner, clean
-  config.py       # Config/Secrets (TOML) + runtime dirs / socket-path helpers
-tests/            # pytest, one test_*.py per module (offline; real GPU behind @integration)
+.
+├── AGENTS.md            # agent development guide (CLAUDE.md is a symlink to this)
+├── README.md
+├── Makefile             # install / test / lint / style targets
+├── pyproject.toml       # package metadata, deps, tool config
+├── scripts/setup.sh     # `make install`: build the venv + install imgen[extra]
+├── src/imgen/
+│   ├── cli/             # `ig` command-line interface (Click groups + action bodies)
+│   ├── models/          # model registry + plugins — the extension point (`Model` Protocol)
+│   ├── engine/          # inference backends (MLX / PyTorch-CUDA) + create_pipeline factory
+│   ├── magic_prompt/    # text -> structured JSON caption providers (Ideogram-4-specific)
+│   ├── pipeline.py      # Pipeline = engine + magic_prompt — the warm, load-once unit
+│   ├── worker.py        # warm worker: one job at a time, NDJSON over a Unix socket
+│   ├── daemon.py        # one daemon per model: registry, liveness, auto-start, stop
+│   ├── jobs.py          # `--queue` background jobs: records, detached runner, clean
+│   └── config.py        # Config/Secrets (TOML) + runtime dirs / socket-path helpers
+└── tests/               # pytest, one test_*.py per module (offline; real GPU behind @integration)
 ```
+
+(`docs/` is kept on disk but gitignored — local planning notes, not part of the repo.)
 
 **Adding a model:** implement the `Model` Protocol in `models/<name>.py`, call
 `models.register(...)` at import, and import the module so it registers. The CLI
