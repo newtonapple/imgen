@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from typing import Any
 
 import click
 
@@ -51,45 +50,3 @@ def make_magic_provider(provider: str, model: str, *, secrets: Secrets) -> Magic
     raise click.ClickException(
         f"unknown magic-prompt provider {provider!r}; choose from: {', '.join(sorted(ALL_PROVIDERS))}"
     )
-
-
-def resolve_magic_settings(
-    opts: dict[str, Any], *, config: Config, secrets: Secrets
-) -> tuple[str, str]:
-    """Read --mp/--mm/--set-* from opts, persist --set-*, return (provider, model)."""
-    set_provider = opts.get("set_magic_prompt_provider")
-    set_model = opts.get("set_magic_model")
-    set_key = opts.get("set_magic_prompt_api_key")
-
-    if set_provider:
-        config.set_magic_prompt_provider(set_provider)
-        config.save()
-    if set_model:
-        config.set_magic_prompt_model(set_model)
-        config.save()
-
-    provider = (
-        set_provider
-        or opts.get("magic_prompt_provider")
-        or config.magic_prompt_provider()
-        or "codex"
-    )
-
-    model = set_model or opts.get("magic_model")
-    if model is None:
-        cfg_model = config.magic_prompt_model()
-        if cfg_model and config.magic_prompt_provider() == provider:
-            model = cfg_model
-        else:
-            model = DEFAULT_MODELS.get(provider)
-
-    if set_key:
-        secrets.set_api_key(provider, set_key)
-        secrets.save()
-
-    if model is None:
-        if provider == "pi":
-            raise click.ClickException('pi requires --mm "<pi-provider>/<model>"')
-        raise click.ClickException(f"no model for magic-prompt provider {provider!r}")
-
-    return provider, model

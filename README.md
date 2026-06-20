@@ -112,9 +112,18 @@ socket, per-model JSON registry file, and log file.  Set `IG_RUNTIME_DIR` to a
 shorter path if the default exceeds the platform's Unix-socket path limit
 (104 bytes on macOS, 108 on Linux).
 
-> **Coming in Phase 2b** (not yet available): `ig <model> gen --queue` (fire-and-
-> forget async), `ig model jobs` (list queued/running jobs), `ig model clean`
-> (purge stale job data).
+**Background (async) generation** — pass `--queue` to fire-and-forget without
+blocking:
+
+```bash
+ig ideogram4 gen -p "a cat" -w 768 -h 768 -o out.png --queue
+# prints: queued job <id>
+
+ig model jobs            # list all jobs (queued / running / done / failed)
+ig model jobs <id>       # show details + sidecar path for one job
+ig model clean           # remove completed job records older than 7 days
+ig model clean --all     # remove all completed/failed records
+```
 
 ### Model & precision
 

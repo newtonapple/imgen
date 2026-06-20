@@ -43,60 +43,12 @@ def test_make_provider_unknown_errors():
         P.make_magic_provider("nope", "x", secrets=Secrets({}))
 
 
-def test_resolve_defaults_to_codex_when_nothing_set():
-    provider, model = P.resolve_magic_settings({}, config=Config({}), secrets=Secrets({}))
-    assert provider == "codex" and model == "gpt-5.5"
-
-
-def test_resolve_transient_flags_win_without_persisting(tmp_path, monkeypatch):
-    monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
-    cfg = Config.load()
-    provider, model = P.resolve_magic_settings(
-        {"magic_prompt_provider": "openrouter", "magic_model": "openrouter/free"},
-        config=cfg,
-        secrets=Secrets.load(),
-    )
-    assert (provider, model) == ("openrouter", "openrouter/free")
-    assert not (tmp_path / "config.toml").exists()  # transient, not persisted
-
-
-def test_resolve_set_flags_persist_and_apply(tmp_path, monkeypatch):
-    monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
-    cfg = Config.load()
-    secrets = Secrets.load()
-    provider, model = P.resolve_magic_settings(
-        {
-            "set_magic_prompt_provider": "openrouter",
-            "set_magic_model": "openrouter/free",
-            "set_magic_prompt_api_key": "sk-persist",
-        },
-        config=cfg,
-        secrets=secrets,
-    )
-    assert (provider, model) == ("openrouter", "openrouter/free")
-    assert Config.load().magic_prompt_provider() == "openrouter"
-    assert Config.load().magic_prompt_model() == "openrouter/free"
-    assert Secrets.load().api_key("openrouter") == "sk-persist"
-
-
-def test_resolve_pi_without_model_errors():
-    import click
-
-    with pytest.raises(click.ClickException, match="pi requires"):
-        P.resolve_magic_settings(
-            {"magic_prompt_provider": "pi"}, config=Config({}), secrets=Secrets({})
-        )
-
-
 def test_resolve_magic_provider_reads_config_then_defaults():
-    from imagegen.config import Config
-    from imagegen.magic_prompt.providers import resolve_magic_provider
-
-    assert resolve_magic_provider(Config({})) == ("codex", "gpt-5.5")
+    assert P.resolve_magic_provider(Config({})) == ("codex", "gpt-5.5")
     cfg = Config({"magic_prompt": {"provider": "openrouter", "model": "openrouter/free"}})
-    assert resolve_magic_provider(cfg) == ("openrouter", "openrouter/free")
+    assert P.resolve_magic_provider(cfg) == ("openrouter", "openrouter/free")
     # provider set but model missing -> per-provider default
-    assert resolve_magic_provider(Config({"magic_prompt": {"provider": "openai"}})) == (
+    assert P.resolve_magic_provider(Config({"magic_prompt": {"provider": "openai"}})) == (
         "openai",
         "gpt-4o-mini",
     )
