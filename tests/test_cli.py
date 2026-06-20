@@ -193,6 +193,15 @@ def test_config_set_weights_path_persists(monkeypatch, tmp_path) -> None:
     assert Config.load(tmp_path / "config.toml").model_path("ideogram4") is not None
 
 
+def test_config_set_invalid_value_rejected(monkeypatch, tmp_path) -> None:
+    """A fixed-choice config key rejects an out-of-set value with the allowed values."""
+    monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
+    r = run(["ideogram4", "config", "set", "quantize", "9"])
+    assert r.exit_code != 0
+    assert "choose from" in r.output and "4" in r.output and "8" in r.output
+    assert not (tmp_path / "config.toml").exists()  # nothing persisted on rejection
+
+
 # ---------------------------------------------------------------------------
 # error handling
 # ---------------------------------------------------------------------------

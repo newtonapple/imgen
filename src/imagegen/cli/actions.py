@@ -9,6 +9,7 @@ from typing import Any
 import click
 
 from ..config import Config, Secrets, resolve_weights_path
+from ..magic_prompt.providers import ALL_PROVIDERS
 from ..platform import Backend, default_backend
 from ..worker import serve as worker_serve
 
@@ -69,16 +70,30 @@ _CONFIG_SETTERS = {
     "magic-model": lambda cfg, model, value: cfg.set_magic_prompt_model(value),
 }
 
+# Config keys whose value is constrained to a fixed set ("" clears where allowed).
+_CONFIG_VALUE_CHOICES: dict[str, list[str]] = {
+    "quantize": ["4", "8"],
+    "backend": [b.value for b in Backend],
+    "magic-provider": sorted(ALL_PROVIDERS),
+}
+_CLEARABLE = {"quantize", "backend"}
+
 
 def run_config_set(model: Any, key: str, value: str) -> None:
     if key not in model.config_keys:
         raise click.ClickException(
             f"unknown config key {key!r}; valid: {', '.join(sorted(model.config_keys))}"
         )
+    choices = _CONFIG_VALUE_CHOICES.get(key)
+    if choices is not None and value and value not in choices:
+        clear = " (or empty to clear)" if key in _CLEARABLE else ""
+        raise click.ClickException(
+            f"invalid value {value!r} for {key!r}; choose from: {', '.join(choices)}{clear}"
+        )
     config = Config.load()
     _CONFIG_SETTERS[key](config, model.name, value)
     config.save()
-    click.echo(f"{model.name}: set {key} = {value}")
+    click.echo(f"{model.name}: set {key} = {value!r}")
 
 
 def run_config_set_key(model: Any, provider: str, api_key: str) -> None:
