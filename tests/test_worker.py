@@ -88,3 +88,48 @@ def test_socket_roundtrip(tmp_path):
             },
         )
         assert resp["ok"] and resp["seed"] == 3
+
+
+def test_serve_invokes_job_hooks(tmp_path):
+    import os
+    import tempfile
+    import threading
+    import time
+    from imagegen.worker import send_request, serve
+
+    events: list[str] = []
+    with tempfile.TemporaryDirectory(dir="/tmp") as td:
+        sock = os.path.join(td, "w.sock")
+        out = str(tmp_path / "o.png")
+        t = threading.Thread(
+            target=serve,
+            args=(sock, _fake_pipeline()),
+            kwargs={
+                "on_job_start": lambda: events.append("start"),
+                "on_job_end": lambda: events.append("end"),
+            },
+            daemon=True,
+        )
+        t.start()
+        for _ in range(50):
+            if os.path.exists(sock):
+                break
+            time.sleep(0.02)
+        resp = send_request(
+            sock,
+            {
+                "op": "run",
+                "prompt": "x",
+                "width": 64,
+                "height": 64,
+                "seed": 3,
+                "preset": "V4_TURBO_12",
+                "output_path": out,
+            },
+        )
+        assert resp["ok"]
+        for _ in range(50):
+            if events == ["start", "end"]:
+                break
+            time.sleep(0.02)
+    assert events == ["start", "end"]

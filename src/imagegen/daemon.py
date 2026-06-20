@@ -149,7 +149,12 @@ def run_daemon(
     signal.signal(signal.SIGTERM, _shutdown)
     write_record(model, socket=str(sock), pid=os.getpid(), backend=backend, quantize=quantize)
     try:
-        worker_serve(str(sock), pipeline)  # binds the socket; serves one job at a time
+        worker_serve(
+            str(sock),
+            pipeline,
+            on_job_start=lambda: set_state(model, "busy"),
+            on_job_end=lambda: set_state(model, "idle"),
+        )  # binds the socket; serves one job at a time
     finally:
         remove_record(model)
         if sock.exists():

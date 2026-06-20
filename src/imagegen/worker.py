@@ -59,7 +59,13 @@ def handle_request(
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
-def serve(socket_path: str, pipeline: Any) -> None:
+def serve(
+    socket_path: str,
+    pipeline: Any,
+    *,
+    on_job_start: Callable[[], None] | None = None,
+    on_job_end: Callable[[], None] | None = None,
+) -> None:
     if os.path.exists(socket_path):
         os.unlink(socket_path)
     srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -76,8 +82,14 @@ def serve(socket_path: str, pipeline: Any) -> None:
                 def emit(d: dict[str, Any]) -> None:
                     conn.sendall((json.dumps(d) + "\n").encode())
 
-                result = handle_request(pipeline, json.loads(data), emit)
-                emit(result)
+                if on_job_start is not None:
+                    on_job_start()
+                try:
+                    result = handle_request(pipeline, json.loads(data), emit)
+                    emit(result)
+                finally:
+                    if on_job_end is not None:
+                        on_job_end()
     finally:
         srv.close()
         if os.path.exists(socket_path):
