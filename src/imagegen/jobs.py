@@ -128,6 +128,36 @@ def run_job(job_id: str) -> int:
     return 0
 
 
+def clean(*, older_than_days: int | None = None, truncate_running: bool = False) -> dict[str, int]:
+    """Remove finished-job records/logs and dead-daemon logs.
+
+    Returns a dict with keys "jobs", "logs", "truncated".
+    """
+    stats: dict[str, int] = {"jobs": 0, "logs": 0, "truncated": 0}
+    cutoff = time.time() - older_than_days * 86400 if older_than_days is not None else None
+    for rec in list_jobs():
+        if rec.get("status") not in ("done", "failed"):
+            continue
+        if cutoff is not None and (rec.get("finished_at") or 0.0) > cutoff:
+            continue
+        config.job_record_path(rec["id"]).unlink(missing_ok=True)
+        config.job_log_path(rec["id"]).unlink(missing_ok=True)
+        stats["jobs"] += 1
+
+    live = {r["model"] for r in daemon.list_daemons() if r.get("live")}
+    logs = config.logs_dir()
+    if logs.exists():
+        for logp in logs.glob("*.log"):
+            if logp.stem in live:
+                if truncate_running:
+                    logp.write_text("")
+                    stats["truncated"] += 1
+            else:
+                logp.unlink(missing_ok=True)
+                stats["logs"] += 1
+    return stats
+
+
 def _main(argv: list[str]) -> int:
     if len(argv) != 1:
         print("usage: python -m imagegen.jobs <job-id>", file=sys.stderr)

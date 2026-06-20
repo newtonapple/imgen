@@ -71,6 +71,32 @@ def show_cmd(name: str) -> None:
 model_group.add_command(show_cmd, name="get")
 
 
+@model_group.command("clean")
+@click.option(
+    "--all",
+    "all_",
+    is_flag=True,
+    default=False,
+    help="also truncate logs of running daemons",
+)
+@click.option(
+    "--older-than",
+    type=int,
+    default=None,
+    metavar="DAYS",
+    help="only remove jobs finished more than DAYS days ago",
+)
+def clean_cmd(all_: bool, older_than: int | None) -> None:
+    """Remove finished-job records/logs and dead-daemon logs."""
+    from .. import jobs as jobs_mod
+
+    stats = jobs_mod.clean(older_than_days=older_than, truncate_running=all_)
+    click.echo(
+        f"removed {stats['jobs']} job(s), {stats['logs']} dead-daemon log(s); "
+        f"truncated {stats['truncated']} running log(s)"
+    )
+
+
 @model_group.command("jobs")
 @click.argument("job_id", required=False)
 def jobs_cmd(job_id: str | None) -> None:

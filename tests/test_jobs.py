@@ -117,3 +117,53 @@ def test_run_job_failure_records_error(tmp_path, monkeypatch):
     assert rc == 1
     rec = j.read_job("ab12cd")
     assert rec["status"] == "failed" and rec["error"] == "OOM"
+
+
+def test_clean_removes_finished_keeps_active(tmp_path, monkeypatch):
+    j = _fresh(tmp_path, monkeypatch)
+    monkeypatch.setattr(j.daemon, "list_daemons", lambda: [])
+    j.create_job("done01", model="m", out="/o.png", request={})
+    j.set_job_status("done01", "done", finished_at=1.0)
+    j.config.job_log_path("done01").write_text("log")
+    j.create_job("run001", model="m", out="/o.png", request={})
+    j.set_job_status("run001", "running")
+    j.create_job("queue1", model="m", out="/o.png", request={})  # queued
+    stats = j.clean()
+    assert stats["jobs"] == 1
+    assert j.read_job("done01") is None
+    assert not j.config.job_log_path("done01").exists()
+    assert j.read_job("run001") is not None and j.read_job("queue1") is not None
+
+
+def test_clean_older_than(tmp_path, monkeypatch):
+    import time as _t
+
+    j = _fresh(tmp_path, monkeypatch)
+    monkeypatch.setattr(j.daemon, "list_daemons", lambda: [])
+    j.create_job("oldjob", model="m", out="/o", request={})
+    j.set_job_status("oldjob", "done", finished_at=_t.time() - 10 * 86400)
+    j.create_job("newjob", model="m", out="/o", request={})
+    j.set_job_status("newjob", "done", finished_at=_t.time())
+    stats = j.clean(older_than_days=7)
+    assert stats["jobs"] == 1
+    assert j.read_job("oldjob") is None and j.read_job("newjob") is not None
+
+
+def test_clean_dead_daemon_logs(tmp_path, monkeypatch):
+    j = _fresh(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        j.daemon,
+        "list_daemons",
+        lambda: [{"model": "live1", "live": True}, {"model": "dead1", "live": False}],
+    )
+    j.config.logs_dir().mkdir(parents=True, exist_ok=True)
+    (j.config.logs_dir() / "live1.log").write_text("x")
+    (j.config.logs_dir() / "dead1.log").write_text("x")
+    stats = j.clean()
+    assert stats["logs"] == 1
+    assert (j.config.logs_dir() / "live1.log").exists()
+    assert not (j.config.logs_dir() / "dead1.log").exists()
+    # --all truncates the live one
+    stats2 = j.clean(truncate_running=True)
+    assert stats2["truncated"] == 1
+    assert (j.config.logs_dir() / "live1.log").read_text() == ""

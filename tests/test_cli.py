@@ -406,6 +406,15 @@ def test_model_jobs_show_unknown(monkeypatch: Any) -> None:
     assert "no such job" in r.output.lower()
 
 
+def test_model_clean_cmd(monkeypatch: Any) -> None:
+    from imagegen import jobs
+
+    monkeypatch.setattr(jobs, "clean", lambda **kw: {"jobs": 2, "logs": 1, "truncated": 0})
+    r = run(["model", "clean"])
+    assert r.exit_code == 0, r.output
+    assert "2" in r.output and "removed" in r.output.lower()
+
+
 def test_model_list_shows_state(monkeypatch: Any) -> None:
     from imagegen import daemon
 
