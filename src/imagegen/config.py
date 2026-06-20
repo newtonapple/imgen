@@ -9,6 +9,7 @@ path, so nothing is hardcoded.
 from __future__ import annotations
 
 import os
+import sys
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -68,6 +69,48 @@ def _config_path() -> Path:
 
 def _secrets_path() -> Path:
     return _config_dir() / "secrets.toml"
+
+
+RUNTIME_DIR_ENV = "IG_RUNTIME_DIR"
+# AF_UNIX sun_path limit: 104 on Darwin (BSD), 108 on Linux. Leave 1 byte for NUL.
+_SUN_PATH_MAX = 104 if sys.platform == "darwin" else 108
+
+
+def runtime_dir() -> Path:
+    v = os.environ.get(RUNTIME_DIR_ENV)
+    return Path(v).expanduser() if v else (Path.home() / ".cache" / "ig")
+
+
+def daemons_dir() -> Path:
+    return runtime_dir() / "daemons"
+
+
+def logs_dir() -> Path:
+    return runtime_dir() / "logs"
+
+
+def daemon_socket_path(model: str) -> Path:
+    return daemons_dir() / f"{model}.sock"
+
+
+def daemon_record_path(model: str) -> Path:
+    return daemons_dir() / f"{model}.json"
+
+
+def daemon_log_path(model: str) -> Path:
+    return logs_dir() / f"{model}.log"
+
+
+def validate_socket_path(path: Path) -> None:
+    if len(str(path).encode()) >= _SUN_PATH_MAX:
+        raise RuntimeError(
+            f"socket path too long for this platform ({len(str(path))} >= {_SUN_PATH_MAX}): "
+            f"{path}. Set {RUNTIME_DIR_ENV} to a shorter directory."
+        )
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise RuntimeError(f"runtime socket dir not writable: {path.parent} ({exc})") from exc
 
 
 # Module-level constants computed at import time (kept for backward compat).
