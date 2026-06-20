@@ -105,3 +105,39 @@ def test_available_models_handles_corrupt_json(tmp_path, monkeypatch):
 
     models = CliMagicPromptProvider.available_models()
     assert models == ["codex - gpt-5.5", "codex - gpt-5.4", "codex - gpt-5.4-mini"]
+
+
+def _capture_cmd(stdout):
+    captured = {}
+
+    def run(cmd, capture_output, text, timeout, check):
+        captured["cmd"] = cmd
+        return SimpleNamespace(returncode=0, stdout=stdout, stderr="")
+
+    return captured, run
+
+
+def test_codex_argv_unchanged():
+    captured, run = _capture_cmd(json.dumps(CAPTION))
+    CliMagicPromptProvider(provider="codex", model="gpt-5.5", runner=run).expand(
+        "a cat", width=512, height=512
+    )
+    assert captured["cmd"][:5] == [captured["cmd"][0], "exec", "--model", "gpt-5.5", "--sandbox"]
+
+
+def test_claude_argv():
+    captured, run = _capture_cmd(json.dumps(CAPTION))
+    CliMagicPromptProvider(provider="claude", model="sonnet", runner=run).expand(
+        "a cat", width=512, height=512
+    )
+    cmd = captured["cmd"]
+    assert cmd[1] == "-p" and cmd[-2:] == ["--model", "sonnet"]
+
+
+def test_pi_argv_splits_provider_and_model_on_first_slash():
+    captured, run = _capture_cmd(json.dumps(CAPTION))
+    CliMagicPromptProvider(provider="pi", model="openrouter/some/model", runner=run).expand(
+        "a cat", width=512, height=512
+    )
+    cmd = captured["cmd"]
+    assert cmd[1:5] == ["--provider", "openrouter", "--model", "some/model"]

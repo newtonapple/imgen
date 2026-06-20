@@ -1,30 +1,31 @@
 # src/imagegen/magic_prompt/cli_provider.py
-"""Magic-prompt via the codex/pi CLI (ports the ComfyUI CodexPromptToJson node)."""
+"""Magic-prompt via a local CLI (codex / claude / pi) — no API key needed."""
 
 from __future__ import annotations
+
 import json
-import re
 import shutil
 import subprocess
 from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
-from ..engine.resolution import aspect_ratio
-
-_TEMPLATE = (Path(__file__).parent / "templates" / "ideogram4_caption.txt").read_text()
+from ._caption_prompt import run_magic_prompt
 
 CODEX_MODELS = ("gpt-5.5", "gpt-5.4", "gpt-5.4-mini")
 PI_MODELS_PATH = "~/.pi/agent/models.json"
 
 
 class CliMagicPromptProvider:
+    """Runs a one-shot CLI tool and parses its stdout into a caption dict."""
+
     def __init__(
         self,
-        model: str = "codex - gpt-5.5",
+        provider: str = "codex",
+        model: str = "gpt-5.5",
         timeout_s: int = 120,
         runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
     ):
+        self.provider = provider
         self.model = model
         self.timeout_s = timeout_s
         self._runner = runner
@@ -32,32 +33,34 @@ class CliMagicPromptProvider:
     def expand(
         self, prompt: str, *, width: int, height: int, target_elements: int = 0
     ) -> dict[str, Any]:
-        ar = aspect_ratio(width, height)
-        instruction = f'{_TEMPLATE}\n\nUSER PROMPT:\n{prompt}\n\n[ASPECT RATIO]\nReturn aspect_ratio exactly "{ar}" and compose bbox for a {width}x{height} canvas.'
-        if target_elements > 0:
-            instruction += (
-                f"\n\n[ELEMENT COUNT]\nReturn a target of exactly {target_elements} "
-                "entries in compositional_deconstruction.elements (add real subjects/"
-                "props/text, not body parts); include every explicit text element even if it exceeds the target."
-            )
-        cmd = self._build_cmd(instruction)
+        return run_magic_prompt(
+            self._call_model,
+            prompt=prompt,
+            width=width,
+            height=height,
+            target_elements=target_elements,
+        )
+
+    def _call_model(self, instruction: str) -> str:
         result = self._runner(
-            cmd, capture_output=True, text=True, timeout=self.timeout_s, check=False
+            self._build_cmd(instruction),
+            capture_output=True,
+            text=True,
+            timeout=self.timeout_s,
+            check=False,
         )
         if result.returncode != 0:
             raise RuntimeError(f"magic-prompt CLI failed: {(result.stderr or result.stdout)[:300]}")
-        parsed: dict[str, Any] = json.loads(self._extract_json(result.stdout))
-        parsed["aspect_ratio"] = ar
-        return parsed
+        return str(result.stdout)
 
     def _build_cmd(self, instruction: str) -> list[str]:
-        if self.model.startswith("pi - "):
-            provider, _, model_id = self.model.removeprefix("pi - ").partition(" - ")
+        if self.provider == "pi":
+            pi_provider, _, model_id = self.model.partition("/")
             pi = shutil.which("pi") or "pi"
             return [
                 pi,
                 "--provider",
-                provider,
+                pi_provider,
                 "--model",
                 model_id,
                 "--print",
@@ -68,13 +71,15 @@ class CliMagicPromptProvider:
                 "off",
                 instruction,
             ]
-        model_id = self.model.removeprefix("codex - ").strip()
+        if self.provider == "claude":
+            claude = shutil.which("claude") or "claude"
+            return [claude, "-p", instruction, "--model", self.model]
         codex = shutil.which("codex") or "codex"
         return [
             codex,
             "exec",
             "--model",
-            model_id,
+            self.model,
             "--sandbox",
             "read-only",
             "--skip-git-repo-check",
@@ -84,8 +89,8 @@ class CliMagicPromptProvider:
 
     @staticmethod
     def available_models() -> list[str]:
-        """Codex models + text-capable pi models from ~/.pi/agent/models.json
-        (override path via PI_MODELS_JSON env var). Mirrors the ComfyUI CodexPromptToJson node."""
+        """Reference list: codex models + text-capable pi models from
+        ~/.pi/agent/models.json (override path via PI_MODELS_JSON)."""
         import os
 
         choices = [f"codex - {m}" for m in CODEX_MODELS]
@@ -105,12 +110,3 @@ class CliMagicPromptProvider:
                     continue
                 choices.append(f"pi - {provider_name} - {model_id}")
         return choices
-
-    @staticmethod
-    def _extract_json(text: str) -> str:
-        text = text.strip()
-        fence = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
-        if fence:
-            text = fence.group(1).strip()
-        start, end = text.find("{"), text.rfind("}")
-        return text[start : end + 1] if start != -1 and end != -1 and end > start else text
