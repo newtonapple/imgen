@@ -65,3 +65,21 @@ def test_magic_prompt_section_roundtrip(tmp_path, monkeypatch):
     assert reloaded.magic_prompt_provider() == "openrouter"
     assert reloaded.magic_prompt_model() == "openrouter/free"
     importlib.reload(c)
+
+
+def test_model_quantize_and_backend_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
+    import importlib
+
+    import imagegen.config as c
+
+    importlib.reload(c)
+    cfg = c.Config.load()
+    cfg.set_model_quantize("ideogram4", "8")
+    cfg.set_model_backend("ideogram4", "mlx")
+    cfg.save()
+    reloaded = c.Config.load()
+    assert reloaded.model_quantize("ideogram4") == "8"
+    assert reloaded.model_backend("ideogram4") == "mlx"
+    assert reloaded.model_quantize("other") is None
+    importlib.reload(c)

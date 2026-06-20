@@ -99,6 +99,28 @@ class Config:
         models = self.data.setdefault("models", {})
         models.setdefault(model, {})["path"] = str(Path(path).expanduser())
 
+    def model_quantize(self, model: str) -> str | None:
+        v = self.data.get("models", {}).get(model, {}).get("quantize")
+        return str(v) if v else None
+
+    def set_model_quantize(self, model: str, value: str | None) -> None:
+        entry = self.data.setdefault("models", {}).setdefault(model, {})
+        if value:
+            entry["quantize"] = value
+        else:
+            entry.pop("quantize", None)
+
+    def model_backend(self, model: str) -> str | None:
+        v = self.data.get("models", {}).get(model, {}).get("backend")
+        return str(v) if v else None
+
+    def set_model_backend(self, model: str, value: str | None) -> None:
+        entry = self.data.setdefault("models", {}).setdefault(model, {})
+        if value:
+            entry["backend"] = value
+        else:
+            entry.pop("backend", None)
+
     def magic_prompt_provider(self) -> str | None:
         v = self.data.get("magic_prompt", {}).get("provider")
         return str(v) if v else None

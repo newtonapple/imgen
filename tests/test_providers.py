@@ -86,3 +86,17 @@ def test_resolve_pi_without_model_errors():
         P.resolve_magic_settings(
             {"magic_prompt_provider": "pi"}, config=Config({}), secrets=Secrets({})
         )
+
+
+def test_resolve_magic_provider_reads_config_then_defaults():
+    from imagegen.config import Config
+    from imagegen.magic_prompt.providers import resolve_magic_provider
+
+    assert resolve_magic_provider(Config({})) == ("codex", "gpt-5.5")
+    cfg = Config({"magic_prompt": {"provider": "openrouter", "model": "openrouter/free"}})
+    assert resolve_magic_provider(cfg) == ("openrouter", "openrouter/free")
+    # provider set but model missing -> per-provider default
+    assert resolve_magic_provider(Config({"magic_prompt": {"provider": "openai"}})) == (
+        "openai",
+        "gpt-4o-mini",
+    )

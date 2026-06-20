@@ -25,6 +25,17 @@ DEFAULT_MODELS = {
 }  # pi has no default — it needs an explicit "<pi-provider>/<model>".
 
 
+def resolve_magic_provider(config: Config) -> tuple[str, str]:
+    """Effective (provider, model) from persisted [magic_prompt] config, else defaults."""
+    provider = config.magic_prompt_provider() or "codex"
+    model = config.magic_prompt_model()
+    if not model or config.magic_prompt_provider() != provider:
+        model = DEFAULT_MODELS.get(provider)
+    if model is None:
+        raise click.ClickException(f"no magic-prompt model for {provider!r}; set one with config")
+    return provider, model
+
+
 def make_magic_provider(provider: str, model: str, *, secrets: Secrets) -> MagicPromptProvider:
     if provider in CLI_PROVIDERS:
         return CliMagicPromptProvider(provider, model)
