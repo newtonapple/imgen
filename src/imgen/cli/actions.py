@@ -10,14 +10,14 @@ from typing import Any
 import click
 
 from .. import daemon, metadata
-from ..config import Config, Secrets, resolve_weights_path, daemon_log_path
+from ..config import Config, Secrets, resolve_backend, resolve_weights_path, daemon_log_path
 from ..magic_prompt.providers import ALL_PROVIDERS
 from ..platform import Backend, default_backend
 from ..worker import stream_request
 
 
 def _resolve_backend(model: Any, config: Config) -> Backend:
-    name = config.model_backend(model.name)
+    name = resolve_backend(config, model.name)
     be = Backend(name) if name else default_backend()
     if be not in model.supported_backends:
         raise click.ClickException(
@@ -25,6 +25,15 @@ def _resolve_backend(model: Any, config: Config) -> Backend:
             f"{', '.join(b.value for b in model.supported_backends)}"
         )
     return be
+
+
+def _warn_if_live(model_name: str, build_overrides: dict[str, str] | None) -> None:
+    if build_overrides and daemon.live_record(model_name) is not None:
+        click.echo(
+            f"warning: {model_name} daemon already running; build overrides ignored "
+            f"(ig {model_name} stop to apply)",
+            err=True,
+        )
 
 
 def _build_pipeline_for(model: Any) -> Any:
@@ -51,7 +60,7 @@ def _build_request(out: str, gen_opts: dict[str, Any]) -> dict[str, Any]:
             "preset": gen_opts.get("preset", "V4_DEFAULT_20"),
             "seed": gen_opts.get("seed"),
             "output_path": out,
-        }
+        }  # caption path skips magic-prompt, so --mp/--mm don't apply here
     return {
         "op": "run",
         "prompt": gen_opts.get("prompt"),
@@ -61,10 +70,14 @@ def _build_request(out: str, gen_opts: dict[str, Any]) -> dict[str, Any]:
         "seed": gen_opts.get("seed"),
         "target_elements": gen_opts.get("target_elements", 0),
         "output_path": out,
+        "magic_provider": gen_opts.get("magic_provider"),
+        "magic_model": gen_opts.get("magic_model"),
     }
 
 
-def run_gen(model: Any, out: str, gen_opts: dict[str, Any]) -> None:
+def run_gen(
+    model: Any, out: str, gen_opts: dict[str, Any], build_overrides: dict[str, str] | None = None
+) -> None:
     req = _build_request(out, gen_opts)
     if gen_opts.get("queue"):
         from .. import jobs
@@ -74,6 +87,7 @@ def run_gen(model: Any, out: str, gen_opts: dict[str, Any]) -> None:
         jobs.spawn_runner(job_id)
         click.echo(f"job {job_id} → {out}   (poll: ig model jobs {job_id})")
         return
+    _warn_if_live(model.name, build_overrides)
     sock = daemon.ensure_daemon(model.name)  # auto-start + wait-ready
     result = stream_request(sock, req, _render_progress)
     sys.stderr.write("\r".ljust(40) + "\r")
@@ -87,7 +101,8 @@ def run_gen(model: Any, out: str, gen_opts: dict[str, Any]) -> None:
     sys.stdout.write("\n")
 
 
-def run_serve(model: Any, detach: bool) -> None:
+def run_serve(model: Any, detach: bool, build_overrides: dict[str, str] | None = None) -> None:
+    _warn_if_live(model.name, build_overrides)
     if daemon.live_record(model.name) is not None:
         rec = daemon.read_record(model.name)
         pid = rec["pid"] if rec is not None else "?"

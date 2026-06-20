@@ -38,7 +38,9 @@ def test_build_pipeline_reads_quantize_from_config(monkeypatch):
     monkeypatch.setattr(ig4, "resolve_magic_provider", lambda config: ("codex", "gpt-5.5"))
     monkeypatch.setattr(ig4, "make_magic_provider", lambda provider, model, *, secrets: "PROVIDER")
     monkeypatch.setattr(
-        ig4, "Pipeline", lambda engine, magic_prompt: ("PIPE", engine, magic_prompt)
+        ig4,
+        "Pipeline",
+        lambda engine, magic_prompt, magic_factory=None: ("PIPE", engine, magic_prompt),
     )
 
     cfg = Config({"models": {"ideogram4": {"quantize": "8"}}})

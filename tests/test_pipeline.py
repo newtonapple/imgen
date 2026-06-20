@@ -68,3 +68,29 @@ def test_run_without_seed_still_runs():
     p = Pipeline(engine=eng, magic_prompt=FakeProvider())
     r = p.run("a dog", width=512, height=512, preset="V4_DEFAULT_20", seed=None)
     assert r.seed == 7  # FakeEngine returns 7 when seed is None
+
+
+def test_pipeline_per_request_override_uses_factory():
+    from imgen.pipeline import Pipeline
+
+    class FakeProvider:
+        def __init__(self, tag):
+            self.tag = tag
+
+        def expand(self, prompt, *, width, height, target_elements=0):
+            return {"high_level_description": f"{self.tag}:{prompt}"}
+
+    default = FakeProvider("default")
+    built: list[tuple[str | None, str | None]] = []
+
+    def factory(provider: str | None, model: str | None) -> FakeProvider:
+        built.append((provider, model))
+        return FakeProvider(f"{provider}/{model}")
+
+    p = Pipeline(engine=FakeEngine(), magic_prompt=default, magic_factory=factory)
+    assert (
+        p.magic("x", width=64, height=64)["high_level_description"] == "default:x"
+    )  # default path
+    out = p.magic("x", width=64, height=64, magic_provider="openrouter", magic_model="m")
+    assert out["high_level_description"] == "openrouter/m:x"
+    assert built == [("openrouter", "m")]

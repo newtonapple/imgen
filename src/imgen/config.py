@@ -19,6 +19,14 @@ from .platform import Backend, default_backend
 
 DEFAULT_PRESET = "V4_DEFAULT_20"
 WEIGHTS_ROOT_ENV = "IMGEN_WEIGHTS_ROOT"
+BACKEND_ENV = "IG_BACKEND"
+QUANTIZE_ENV = "IG_QUANTIZE"
+WEIGHTS_PATH_ENV = "IG_WEIGHTS_PATH"
+MAGIC_PROVIDER_ENV = "IG_MAGIC_PROVIDER"
+MAGIC_MODEL_ENV = "IG_MAGIC_MODEL"
+
+_VALID_QUANTIZE = {"4", "8"}
+_VALID_BACKEND = {"mlx", "torch"}
 
 
 @dataclass(frozen=True)
@@ -211,6 +219,24 @@ def _dump_toml(data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def resolve_quantize(cfg: Config, model: str) -> str | None:
+    v = os.environ.get(QUANTIZE_ENV) or cfg.model_quantize(model)
+    if not v:
+        return None
+    if v not in _VALID_QUANTIZE:
+        raise ValueError(f"invalid quantize {v!r}; choose from: 4, 8")
+    return v
+
+
+def resolve_backend(cfg: Config, model: str) -> str | None:
+    v = os.environ.get(BACKEND_ENV) or cfg.model_backend(model)
+    if not v:
+        return None
+    if v not in _VALID_BACKEND:
+        raise ValueError(f"invalid backend {v!r}; choose from: mlx, torch")
+    return v
+
+
 class Secrets:
     """Reads/writes ~/.config/ig/secrets.toml (per-provider API keys, mode 600)."""
 
@@ -255,9 +281,12 @@ def resolve_weights_path(
     cfg: Config,
     model_default: Path | None = None,
 ) -> Path:
-    """--model-path override → config → IMGEN_WEIGHTS_ROOT/<name> → model_default → error."""
+    """--model-path override → IG_WEIGHTS_PATH → config → IMGEN_WEIGHTS_ROOT/<name> → model_default → error."""
     if override:
         return Path(override).expanduser()
+    env_path = os.environ.get(WEIGHTS_PATH_ENV)
+    if env_path:
+        return Path(env_path).expanduser()
     configured = cfg.model_path(model_name)
     if configured:
         return configured

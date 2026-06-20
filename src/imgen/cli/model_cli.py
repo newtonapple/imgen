@@ -2,24 +2,86 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import click
 
 from . import actions
-from ..magic_prompt.providers import HTTP_PROVIDERS
+from .. import config as cfg_mod
+from ..magic_prompt.providers import ALL_PROVIDERS, HTTP_PROVIDERS
 
 
 def build_model_group(model: Any) -> click.Group:
+    backends = [b.value for b in model.supported_backends]
+
+    def _group_cb(
+        ctx: click.Context,
+        weights_path: str | None,
+        backend: str | None,
+        quantize: str | None,
+        magic_provider: str | None,
+        magic_model: str | None,
+    ) -> None:
+        overrides: dict[str, str] = {}
+        pairs = [
+            (weights_path, cfg_mod.WEIGHTS_PATH_ENV, "weights-path"),
+            (backend, cfg_mod.BACKEND_ENV, "backend"),
+            (quantize, cfg_mod.QUANTIZE_ENV, "quantize"),
+            (magic_provider, cfg_mod.MAGIC_PROVIDER_ENV, "magic-provider"),
+            (magic_model, cfg_mod.MAGIC_MODEL_ENV, "magic-model"),
+        ]
+        for value, env_name, key in pairs:
+            if value is not None:
+                os.environ[env_name] = value
+                overrides[key] = value
+        ctx.ensure_object(dict)
+        ctx.obj["build_overrides"] = overrides
+
     group = click.Group(
         model.name,
         help=model.description,
         short_help=model.description.split("—")[0].strip(),
+        params=[
+            click.Option(
+                ["--weights-path"],
+                default=None,
+                type=click.Path(),
+                help="override weights dir (build)",
+            ),
+            click.Option(
+                ["--backend"],
+                default=None,
+                type=click.Choice(backends),
+                help="override backend (build)",
+            ),
+            click.Option(
+                ["--quantize"],
+                default=None,
+                type=click.Choice(["4", "8"]),
+                help="override quantize (build)",
+            ),
+            click.Option(
+                ["--magic-provider", "--mp", "magic_provider"],
+                default=None,
+                type=click.Choice(sorted(ALL_PROVIDERS)),
+                help="daemon-default magic provider",
+            ),
+            click.Option(
+                ["--magic-model", "--mm", "magic_model"],
+                default=None,
+                help="daemon-default magic model",
+            ),
+        ],
+        callback=click.pass_context(_group_cb),
     )
 
     # --- gen -----------------------------------------------------------------
-    def gen_callback(out: str, **gen_opts: Any) -> None:
-        actions.run_gen(model, out, gen_opts)
+    @click.pass_context
+    def gen_callback(ctx: click.Context, /, out: str, **gen_opts: Any) -> None:
+        actions.run_gen(
+            model, out, gen_opts, build_overrides=(ctx.obj or {}).get("build_overrides")
+        )
 
     gen_params: list[click.Parameter] = [
         *model.gen_options,
@@ -48,8 +110,9 @@ def build_model_group(model: Any) -> click.Group:
     )
 
     # --- serve ---------------------------------------------------------------
-    def serve_callback(detach: bool) -> None:
-        actions.run_serve(model, detach)
+    @click.pass_context
+    def serve_callback(ctx: click.Context, /, detach: bool) -> None:
+        actions.run_serve(model, detach, build_overrides=(ctx.obj or {}).get("build_overrides"))
 
     group.add_command(
         click.Command(

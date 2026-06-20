@@ -175,13 +175,25 @@ variants come from quantizing it **on load**, configured via `ig ideogram4 confi
 ig ideogram4 config set quantize 8
 ```
 
+**Overriding the default** — `config set` is only the *default*. The load config
+(`weights-path`, `backend`, `quantize`) is also overridable per run by a model-group
+option or an env var, with precedence **option > env var > `config set` > built-in**:
+
+```bash
+ig ideogram4 --quantize 8 gen -p "a cat" -o out.png   # option (this run)
+IG_QUANTIZE=8 ig ideogram4 gen -p "a cat" -o out.png  # env var
+```
+
+These build the model, so they take effect when the daemon is (auto-)started; if a
+daemon is already warm the override is ignored with a warning (`ig ideogram4 stop` to
+rebuild). Env vars: `IG_WEIGHTS_PATH`, `IG_BACKEND`, `IG_QUANTIZE`.
+
 > The pre-converted `MLXBits/ideogram-4-mlx*` builds are **not** loadable by released
 > mflux (their flat-layout loader lives only in an unmerged PR) — use fp8 + `quantize`.
 
 ### Magic-prompt provider & model
 
-Build config (magic-prompt provider, model, backend, weights path) is set once via
-`ig ideogram4 config set` — not as per-gen flags.
+`ig ideogram4 config set` sets the persisted *default* provider/model:
 
 ```bash
 # free OpenRouter pool (rotating) — store key + persist as default
@@ -193,11 +205,25 @@ ig ideogram4 config set magic-model openrouter/free
 ig ideogram4 gen -p "a cat" -w 768 -h 768 -o out.png
 ```
 
+**Overriding the default** — unlike the load config, magic provider/model can be
+overridden at two levels (`--mp` = `--magic-provider`, `--mm` = `--magic-model`):
+
+```bash
+# daemon default (group level; serve-compatible) — or IG_MAGIC_PROVIDER / IG_MAGIC_MODEL
+ig ideogram4 --mp openrouter --mm openrouter/free serve
+
+# per request (gen level) — overrides just this generation, no daemon restart
+ig ideogram4 gen -p "a cat" -o out.png --mm anthropic/claude-haiku-4-5
+```
+
+Precedence: **per-request `gen --mp/--mm` > group `--mp/--mm` / `IG_MAGIC_*` > `config set` > `codex`**.
+
 - **CLI providers** (`codex`, `claude`, `pi`) shell out to a local CLI and need **no API key**.
 - **HTTP providers** (`openai`, `anthropic`, `openrouter`) need a key stored with
   `ig ideogram4 config set-key <provider> <key>` (written to `~/.config/ig/secrets.toml`, mode 600, never committed).
 - `openrouter` `magic-model` accepts a comma-separated list (e.g. `a/x,b/y`) → an OpenRouter `models[]` fallback chain. `pi` takes `"<pi-provider>/<model>"`.
 - With nothing configured the default is `codex` + `gpt-5.5`.
+- **API keys** are the one setting *not* overridable by a plain option — store them with `config set-key` or the `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` env vars.
 
 Run `ig model show ideogram4` to see all available config keys and gen options.
 The full parameter, preset, and model-component reference follows below.
@@ -242,7 +268,11 @@ printed to **stdout** and also written as a sidecar file at `<out>.json`.
 | `--preset` | `V4_DEFAULT_20` \| `V4_TURBO_12` \| `V4_QUALITY_48` | Sampler bundle — step count + guidance schedule + noise-schedule. See *Presets* below. |
 | `--target-elements` | int, `0` (=auto) | Force ~N entries in `compositional_deconstruction.elements`. 0 lets the LLM choose. |
 | `--caption` | path | Path to a prebuilt caption JSON file. If provided, `--prompt` is ignored. |
+| `--magic-provider` / `--mp` | provider, *config default* | Per-request magic-prompt provider for this generation only. |
+| `--magic-model` / `--mm` | str, *config default* | Per-request magic-prompt model for this generation only. |
 | `--queue` / `-q` | flag, off | Run in the background; returns a job id to poll with `ig model jobs`. |
+
+Model-group build overrides come *before* the action — `ig ideogram4 --weights-path … --backend … --quantize … --mp … --mm … <gen|serve>` (or the `IG_WEIGHTS_PATH` / `IG_BACKEND` / `IG_QUANTIZE` / `IG_MAGIC_PROVIDER` / `IG_MAGIC_MODEL` env vars) — and apply when the daemon is built. Precedence everywhere: **option > env var > `config set` > built-in default** (`api_key` excepted).
 
 **Output sidecar** (`<out>.json`) and stdout JSON fields:
 

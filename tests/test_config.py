@@ -67,6 +67,45 @@ def test_magic_prompt_section_roundtrip(tmp_path, monkeypatch):
     importlib.reload(c)
 
 
+def test_resolve_quantize_precedence(tmp_path, monkeypatch):
+    from imgen.config import Config, resolve_quantize
+
+    cfg = Config({"models": {"ideogram4": {"quantize": "8"}}})
+    assert resolve_quantize(cfg, "ideogram4") == "8"  # config
+    monkeypatch.setenv("IG_QUANTIZE", "4")
+    assert resolve_quantize(cfg, "ideogram4") == "4"  # env wins
+    monkeypatch.delenv("IG_QUANTIZE")
+    assert resolve_quantize(Config({}), "ideogram4") is None  # default
+
+
+def test_resolve_quantize_validates(monkeypatch):
+    import pytest
+    from imgen.config import Config, resolve_quantize
+
+    monkeypatch.setenv("IG_QUANTIZE", "9")
+    with pytest.raises(ValueError, match="quantize"):
+        resolve_quantize(Config({}), "ideogram4")
+
+
+def test_resolve_backend_precedence(monkeypatch):
+    from imgen.config import Config, resolve_backend
+
+    cfg = Config({"models": {"ideogram4": {"backend": "torch"}}})
+    assert resolve_backend(cfg, "ideogram4") == "torch"
+    monkeypatch.setenv("IG_BACKEND", "mlx")
+    assert resolve_backend(cfg, "ideogram4") == "mlx"
+    monkeypatch.delenv("IG_BACKEND")
+    assert resolve_backend(Config({}), "ideogram4") is None
+
+
+def test_resolve_weights_path_env(tmp_path, monkeypatch):
+    from imgen.config import Config, resolve_weights_path
+
+    monkeypatch.setenv("IG_WEIGHTS_PATH", str(tmp_path / "w"))
+    p = resolve_weights_path("ideogram4", None, Config({}))
+    assert p == (tmp_path / "w")
+
+
 def test_model_quantize_and_backend_roundtrip(tmp_path, monkeypatch):
     monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
     import importlib

@@ -52,3 +52,35 @@ def test_resolve_magic_provider_reads_config_then_defaults():
         "openai",
         "gpt-4o-mini",
     )
+
+
+def test_resolve_magic_provider_env_wins(monkeypatch):
+    from imgen.config import Config
+    from imgen.magic_prompt import providers as P
+
+    cfg = Config({"magic_prompt": {"provider": "codex", "model": "gpt-5.5"}})
+    monkeypatch.setenv("IG_MAGIC_PROVIDER", "openrouter")
+    monkeypatch.setenv("IG_MAGIC_MODEL", "openrouter/free")
+    assert P.resolve_magic_provider(cfg) == ("openrouter", "openrouter/free")
+
+
+def test_resolve_magic_provider_env_provider_only_uses_provider_default(monkeypatch):
+    from imgen.config import Config
+    from imgen.magic_prompt import providers as P
+
+    cfg = Config({"magic_prompt": {"provider": "codex", "model": "gpt-5.5"}})
+    monkeypatch.setenv("IG_MAGIC_PROVIDER", "anthropic")  # no IG_MAGIC_MODEL
+    provider, model = P.resolve_magic_provider(cfg)
+    assert provider == "anthropic" and model == P.DEFAULT_MODELS["anthropic"]
+
+
+def test_effective_magic_per_request():
+    from imgen.magic_prompt.providers import effective_magic
+
+    assert effective_magic("codex", "gpt-5.5", provider=None, model="gpt-5.4") == (
+        "codex",
+        "gpt-5.4",
+    )
+    assert effective_magic("codex", "gpt-5.5", provider=None, model=None) == ("codex", "gpt-5.5")
+    p, m = effective_magic("codex", "gpt-5.5", provider="openrouter", model=None)
+    assert p == "openrouter" and m == "openrouter/free"

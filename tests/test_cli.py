@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, Callable
 
+import pytest
 from click.testing import CliRunner, Result
 
 from imgen.cli import ig
@@ -13,6 +15,14 @@ from imgen.cli import ig
 
 def run(args: list[str]) -> Result:
     return CliRunner().invoke(ig, args)
+
+
+@pytest.fixture(autouse=True)
+def _restore_environ() -> Any:
+    snapshot = dict(os.environ)
+    yield
+    os.environ.clear()
+    os.environ.update(snapshot)
 
 
 # ---------------------------------------------------------------------------
@@ -456,6 +466,83 @@ def test_model_list_dead_idle_shows_dash(monkeypatch: Any) -> None:
     r = run(["model", "list"])
     assert r.exit_code == 0, r.output
     assert "crashed" not in r.output
+
+
+def test_group_quantize_sets_env_and_reaches_request(monkeypatch: Any, tmp_path: Any) -> None:
+    import os
+    import imgen.cli.actions as actions
+    from imgen import daemon
+
+    monkeypatch.setattr(daemon, "ensure_daemon", lambda name: "/tmp/fake.sock")
+    seen: dict[str, Any] = {}
+
+    def fake_stream(sock: str, req: dict[str, Any], on_progress: Any = None) -> dict[str, Any]:
+        seen.update(req)
+        open(req["output_path"], "wb").close()
+        return {
+            "ok": True,
+            "seed": 1,
+            "width": 64,
+            "height": 64,
+            "preset": "V4_TURBO_12",
+            "backend": "mlx",
+            "duration_s": 0.1,
+            "caption": None,
+        }
+
+    monkeypatch.setattr(actions, "stream_request", fake_stream)
+    out = tmp_path / "o.png"
+    r = run(
+        [
+            "ideogram4",
+            "--quantize",
+            "8",
+            "gen",
+            "-p",
+            "x",
+            "-o",
+            str(out),
+            "--mm",
+            "openrouter/free",
+        ]
+    )
+    assert r.exit_code == 0, r.output
+    assert (
+        os.environ.get("IG_QUANTIZE") == "8"
+    )  # group option set the env var (autouse fixture restores os.environ after the test)
+    assert seen["magic_model"] == "openrouter/free"  # gen option -> request
+
+
+def test_invalid_group_quantize_rejected() -> None:
+    r = run(["ideogram4", "--quantize", "9", "gen", "-p", "x", "-o", "/tmp/o.png"])
+    assert r.exit_code != 0 and "9" in r.output
+
+
+def test_build_override_warns_when_daemon_live(monkeypatch: Any, tmp_path: Any) -> None:
+    import imgen.cli.actions as actions
+    from imgen import daemon
+
+    monkeypatch.setattr(daemon, "live_record", lambda name: {"pid": 1, "socket": "/s"})
+    monkeypatch.setattr(daemon, "ensure_daemon", lambda name: "/tmp/fake.sock")
+
+    def fake_stream_warn(sock: str, req: dict[str, Any], on_progress: Any = None) -> dict[str, Any]:
+        open(req["output_path"], "wb").close()
+        return {
+            "ok": True,
+            "seed": 1,
+            "width": 64,
+            "height": 64,
+            "preset": "p",
+            "backend": "mlx",
+            "duration_s": 0.1,
+            "caption": None,
+        }
+
+    monkeypatch.setattr(actions, "stream_request", fake_stream_warn)
+    out = tmp_path / "o.png"
+    r = run(["ideogram4", "--quantize", "8", "gen", "-p", "x", "-o", str(out)])
+    assert r.exit_code == 0, r.output
+    assert "already running" in r.output and "build overrides ignored" in r.output
 
 
 def test_gen_queue_spawns_and_prints_job(monkeypatch: Any, tmp_path: Any) -> None:

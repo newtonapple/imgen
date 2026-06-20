@@ -20,6 +20,8 @@ def handle_request(
                 width=req["width"],
                 height=req["height"],
                 target_elements=req.get("target_elements", 0),
+                magic_provider=req.get("magic_provider"),
+                magic_model=req.get("magic_model"),
             )
             return {"ok": True, "caption": cap}
         if op in ("generate", "run"):
@@ -30,6 +32,8 @@ def handle_request(
                     width=req["width"],
                     height=req["height"],
                     target_elements=req.get("target_elements", 0),
+                    magic_provider=req.get("magic_provider"),
+                    magic_model=req.get("magic_model"),
                 )
             else:
                 caption = req["caption"]

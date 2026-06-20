@@ -19,7 +19,9 @@ def _fake_pipeline():
             self.duration_s = 0.1
 
     class FakePipeline:
-        def magic(self, prompt, *, width, height, target_elements=0):
+        def magic(
+            self, prompt, *, width, height, target_elements=0, magic_provider=None, magic_model=None
+        ):
             return {"high_level_description": prompt}
 
         def generate(self, caption, *, width, height, preset, seed):
@@ -133,3 +135,49 @@ def test_serve_invokes_job_hooks(tmp_path):
                 break
             time.sleep(0.02)
     assert events == ["start", "end"]
+
+
+def test_handle_run_passes_magic_overrides(tmp_path):
+    from imgen.worker import handle_request
+
+    seen = {}
+
+    class FakeImg:
+        def save(self, p):
+            open(p, "wb").close()
+
+    class FakeResult:
+        image = FakeImg()
+        seed = 1
+        width = 64
+        height = 64
+        preset = "V4_TURBO_12"
+        caption = {}
+        backend = "fake"
+        duration_s = 0.1
+
+    class FakePipeline:
+        def magic(
+            self, prompt, *, width, height, target_elements=0, magic_provider=None, magic_model=None
+        ):
+            seen["provider"] = magic_provider
+            seen["model"] = magic_model
+            return {"high_level_description": prompt}
+
+        def generate(self, caption, *, width, height, preset, seed):
+            return FakeResult()
+
+    handle_request(
+        FakePipeline(),
+        {
+            "op": "run",
+            "prompt": "x",
+            "width": 64,
+            "height": 64,
+            "output_path": str(tmp_path / "o.png"),
+            "magic_provider": "openrouter",
+            "magic_model": "m",
+        },
+        lambda d: None,
+    )
+    assert seen == {"provider": "openrouter", "model": "m"}

@@ -6,7 +6,7 @@ import os
 
 import click
 
-from ..config import Config, Secrets
+from ..config import Config, MAGIC_MODEL_ENV, MAGIC_PROVIDER_ENV, Secrets
 from .base import MagicPromptProvider
 from .cli_provider import CliMagicPromptProvider
 from .http_provider import PROVIDERS, HttpMagicPromptProvider
@@ -25,14 +25,33 @@ DEFAULT_MODELS = {
 
 
 def resolve_magic_provider(config: Config) -> tuple[str, str]:
-    """Effective (provider, model) from persisted [magic_prompt] config, else defaults."""
-    provider = config.magic_prompt_provider() or "codex"
-    model = config.magic_prompt_model()
-    if not model or config.magic_prompt_provider() != provider:
+    """Daemon-default (provider, model): IG_MAGIC_* > config > codex/<provider default>."""
+    cfg_provider = config.magic_prompt_provider()
+    provider = os.environ.get(MAGIC_PROVIDER_ENV) or cfg_provider or "codex"
+    model = os.environ.get(MAGIC_MODEL_ENV)
+    if not model:
+        model = config.magic_prompt_model() if cfg_provider == provider else None
+    if not model:
         model = DEFAULT_MODELS.get(provider)
     if model is None:
         raise click.ClickException(f"no magic-prompt model for {provider!r}; set one with config")
     return provider, model
+
+
+def effective_magic(
+    default_provider: str, default_model: str, *, provider: str | None, model: str | None
+) -> tuple[str, str]:
+    """Per-request (provider, model) given the daemon defaults and request overrides."""
+    p = provider or default_provider
+    if model:
+        m: str | None = model
+    elif p == default_provider:
+        m = default_model
+    else:
+        m = DEFAULT_MODELS.get(p)
+    if m is None:
+        raise click.ClickException(f"no magic-prompt model for {p!r}; pass --magic-model")
+    return p, m
 
 
 def make_magic_provider(provider: str, model: str, *, secrets: Secrets) -> MagicPromptProvider:
