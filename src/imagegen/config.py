@@ -101,6 +101,18 @@ def daemon_log_path(model: str) -> Path:
     return logs_dir() / f"{model}.log"
 
 
+def jobs_dir() -> Path:
+    return runtime_dir() / "jobs"
+
+
+def job_record_path(job_id: str) -> Path:
+    return jobs_dir() / f"{job_id}.json"
+
+
+def job_log_path(job_id: str) -> Path:
+    return jobs_dir() / f"{job_id}.log"
+
+
 def validate_socket_path(path: Path) -> None:
     if len(str(path).encode()) >= _SUN_PATH_MAX:
         raise RuntimeError(
