@@ -194,7 +194,7 @@ def _spawn_detached(model: str) -> None:
     # Popen duplicates the fd for the child, so closing our copy here is safe.
     with open(logp, "a") as logf:
         subprocess.Popen(
-            [sys.executable, "-m", "imagegen.cli", model, "serve"],
+            [sys.executable, "-m", "imgen.cli", model, "serve"],
             stdin=subprocess.DEVNULL,
             stdout=logf,
             stderr=logf,

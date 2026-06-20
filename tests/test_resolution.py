@@ -1,5 +1,5 @@
 import pytest
-from imagegen.engine.resolution import resolve_size, aspect_ratio
+from imgen.engine.resolution import resolve_size, aspect_ratio
 
 
 @pytest.mark.parametrize(

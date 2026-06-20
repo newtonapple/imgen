@@ -1,9 +1,9 @@
 import pytest
 
-from imagegen.config import Config, Secrets
-from imagegen.magic_prompt import providers as P
-from imagegen.magic_prompt.cli_provider import CliMagicPromptProvider
-from imagegen.magic_prompt.http_provider import HttpMagicPromptProvider
+from imgen.config import Config, Secrets
+from imgen.magic_prompt import providers as P
+from imgen.magic_prompt.cli_provider import CliMagicPromptProvider
+from imgen.magic_prompt.http_provider import HttpMagicPromptProvider
 
 
 def test_make_provider_cli_no_key():

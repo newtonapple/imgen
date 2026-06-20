@@ -1,7 +1,7 @@
 [project]
-name = "imagegen"
+name = "imgen"
 version = "0.1.0"
-description = "Ideogram-4 image-generation pipeline: magic-prompt -> structured JSON -> image, with pluggable inference backends (MLX on Apple Silicon, PyTorch/CUDA on the DGX Spark)."
+description = "imgen: an Ideogram-4 image-generation pipeline (plain prompt -> magic-prompt -> structured JSON caption -> image) with pluggable inference backends -- MLX on Apple Silicon, PyTorch/CUDA on the DGX Spark."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -33,7 +33,7 @@ dev = [
 ]
 
 [project.scripts]
-ig = "imagegen.cli:main"
+ig = "imgen.cli:main"
 
 [build-system]
 requires = ["hatchling>=1.24"]
@@ -44,7 +44,7 @@ build-backend = "hatchling.build"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/imagegen"]
+packages = ["src/imgen"]
 
 [tool.ruff]
 line-length = 100

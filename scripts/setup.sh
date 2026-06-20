@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Create the project virtualenv OUTSIDE iCloud and install imagegen (editable) +
+# Create the project virtualenv OUTSIDE iCloud and install imgen (editable) +
 # the matching backend extra. Living outside iCloud lets uv hardlink packages
 # from its global cache (no duplicated bytes) and keeps the venv off iCloud sync.
-# The install also provides the `imagegen` CLI entry point.
+# The install also provides the `ig` CLI entry point.
 #
 #   Apple Silicon (Darwin/arm64) -> MLX backend  (extra: mlx)
 #   Linux                        -> PyTorch/CUDA (extra: cuda)
 #
-# Override the venv location with IMAGEGEN_VENV.
+# Override the venv location with IMGEN_VENV.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 OS="$(uname -s)"
 ARCH="$(uname -m)"
-VENV="${IMAGEGEN_VENV:-$HOME/.venvs/imagegen}"
+VENV="${IMGEN_VENV:-$HOME/.venvs/imgen}"
 
 case "$OS/$ARCH" in
   Darwin/arm64 | Darwin/aarch64)
@@ -26,12 +26,12 @@ case "$OS/$ARCH" in
 esac
 
 echo "Detected $OS/$ARCH -> installing extra: [$EXTRA]"
-echo "venv: $VENV  (outside iCloud; override with IMAGEGEN_VENV)"
+echo "venv: $VENV  (outside iCloud; override with IMGEN_VENV)"
 
 uv venv --python 3.12 "$VENV"
 uv pip install --python "$VENV/bin/python" -e ".[$EXTRA,dev]"
 
 echo
-echo "Done. The 'imagegen' CLI is installed in $VENV:"
-echo "  source $VENV/bin/activate && imagegen --help"
+echo "Done. The 'ig' CLI is installed in $VENV:"
+echo "  source $VENV/bin/activate && ig --help"
 echo "Run tests with:  make test"

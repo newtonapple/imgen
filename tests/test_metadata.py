@@ -2,7 +2,7 @@ import json
 
 
 def test_build_summary_shape():
-    from imagegen.metadata import build_summary
+    from imgen.metadata import build_summary
 
     result = {
         "seed": 42,
@@ -29,7 +29,7 @@ def test_build_summary_shape():
 
 
 def test_write_sidecar(tmp_path):
-    from imagegen.metadata import write_sidecar
+    from imgen.metadata import write_sidecar
 
     out = tmp_path / "o.png"
     write_sidecar(str(out), {"model": "ideogram4", "out": str(out)})

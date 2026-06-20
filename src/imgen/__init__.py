@@ -1,4 +1,4 @@
-"""imagegen — Ideogram-4 image-generation pipeline with pluggable backends."""
+"""imgen — Ideogram-4 image-generation pipeline with pluggable backends."""
 
 from __future__ import annotations
 

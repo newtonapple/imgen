@@ -3,10 +3,10 @@ from pathlib import Path
 
 import click
 
-from imagegen import models
-from imagegen.config import Config, Secrets
-from imagegen.models import ideogram4 as ig4
-from imagegen.platform import Backend
+from imgen import models
+from imgen.config import Config, Secrets
+from imgen.models import ideogram4 as ig4
+from imgen.platform import Backend
 
 
 def test_registered_with_alias():

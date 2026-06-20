@@ -1,4 +1,4 @@
-from imagegen.platform import (
+from imgen.platform import (
     Backend,
     default_backend,
     is_apple_silicon,

@@ -13,7 +13,7 @@ from ..platform import platform_summary
 
 
 @click.group("ig")
-@click.version_option(package_name="imagegen", prog_name="ig")
+@click.version_option(package_name="imgen", prog_name="ig")
 def ig() -> None:
     """Generate images from text via pluggable models."""
 

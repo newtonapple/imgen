@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from imagegen.magic_prompt import _caption_prompt as cp
+from imgen.magic_prompt import _caption_prompt as cp
 
 CAPTION = {
     "high_level_description": "a cat",

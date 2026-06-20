@@ -2,7 +2,7 @@
 
 Weights live OUTSIDE the repo (an external volume on the Mac, ~/ai/image-gen on
 the Spark) and are referenced by path only — never committed, never in iCloud.
-The weights root is supplied via the IMAGEGEN_WEIGHTS_ROOT env var or an explicit
+The weights root is supplied via the IMGEN_WEIGHTS_ROOT env var or an explicit
 path, so nothing is hardcoded.
 """
 
@@ -18,7 +18,7 @@ from typing import Any
 from .platform import Backend, default_backend
 
 DEFAULT_PRESET = "V4_DEFAULT_20"
-WEIGHTS_ROOT_ENV = "IMAGEGEN_WEIGHTS_ROOT"
+WEIGHTS_ROOT_ENV = "IMGEN_WEIGHTS_ROOT"
 
 
 @dataclass(frozen=True)
@@ -255,7 +255,7 @@ def resolve_weights_path(
     cfg: Config,
     model_default: Path | None = None,
 ) -> Path:
-    """--model-path override → config → IMAGEGEN_WEIGHTS_ROOT/<name> → model_default → error."""
+    """--model-path override → config → IMGEN_WEIGHTS_ROOT/<name> → model_default → error."""
     if override:
         return Path(override).expanduser()
     configured = cfg.model_path(model_name)

@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from imagegen.magic_prompt.http_provider import PROVIDERS, HttpMagicPromptProvider
+from imgen.magic_prompt.http_provider import PROVIDERS, HttpMagicPromptProvider
 
 CAPTION = {
     "high_level_description": "a cat",

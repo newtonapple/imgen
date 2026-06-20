@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from imagegen.config import ModelSpec
-from imagegen.engine.factory import create_pipeline, ensure_supported, resolve_backend
-from imagegen.platform import Backend, is_apple_silicon
+from imgen.config import ModelSpec
+from imgen.engine.factory import create_pipeline, ensure_supported, resolve_backend
+from imgen.platform import Backend, is_apple_silicon
 
 
 def _torch_installed() -> bool:
@@ -49,7 +49,7 @@ def test_torch_backend_errors_without_torch():
 def test_create_pipeline_dispatches_to_mlx(monkeypatch):
     # Verify the factory builds an MlxEngine for an MLX spec, without loading a
     # real model (MlxEngine.__init__ otherwise loads mflux from model.path).
-    import imagegen.engine.mlx_engine as mlx_engine
+    import imgen.engine.mlx_engine as mlx_engine
 
     monkeypatch.setattr(
         mlx_engine.MlxEngine,
@@ -64,7 +64,7 @@ def test_create_pipeline_dispatches_to_mlx(monkeypatch):
 
 @pytest.mark.skipif(not is_apple_silicon(), reason="MLX requires Apple Silicon")
 def test_create_pipeline_forwards_quantize_to_mlx(monkeypatch):
-    import imagegen.engine.mlx_engine as mlx_engine
+    import imgen.engine.mlx_engine as mlx_engine
 
     seen = {}
 

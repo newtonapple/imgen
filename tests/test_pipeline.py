@@ -1,6 +1,6 @@
 # tests/test_pipeline.py
-from imagegen.pipeline import Pipeline
-from imagegen.engine.base import GenerationResult
+from imgen.pipeline import Pipeline
+from imgen.engine.base import GenerationResult
 
 
 class FakeEngine:

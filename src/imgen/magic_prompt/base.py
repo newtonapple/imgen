@@ -1,4 +1,4 @@
-# src/imagegen/magic_prompt/base.py
+# src/imgen/magic_prompt/base.py
 from __future__ import annotations
 from typing import Any, Protocol, runtime_checkable
 

@@ -1,4 +1,4 @@
-# imagegen
+# imgen
 
 Pure-Python pipeline for **Ideogram 4** image generation:
 plain prompt → magic-prompt → structured JSON caption → image, with edit/regenerate.
@@ -17,7 +17,7 @@ A factory takes a **model** (weights on disk) + an **inference backend** and
 builds a warm, load-once **inference pipeline** (`ImageEngine`):
 
 ```python
-from imagegen import ModelSpec, create_pipeline
+from imgen import ModelSpec, create_pipeline
 
 model = ModelSpec.from_path("/Volumes/PRO-G40/data/models/image-gen/ideogram-4-fp8")
 engine = create_pipeline(model)          # backend auto-detected (MLX here)
@@ -32,18 +32,18 @@ is just one caller.
 
 Model weights are **never committed and never live in iCloud** — they sit on an
 external volume / the Spark and are referenced by path (`ModelSpec.path`, or the
-`IMAGEGEN_WEIGHTS_ROOT` env var).
+`IMGEN_WEIGHTS_ROOT` env var).
 
 ## Install
 
-`make install` creates the virtualenv at `~/.venvs/imagegen` (kept **outside**
+`make install` creates the virtualenv at `~/.venvs/imgen` (kept **outside**
 this iCloud-synced repo, so uv clones packages from its global cache with no byte
-duplication and iCloud never syncs it; override with `IMAGEGEN_VENV`) and installs
+duplication and iCloud never syncs it; override with `IMGEN_VENV`) and installs
 the package (editable) plus the platform backend extra — which also installs the
 `ig` CLI:
 
 ```bash
-make install    # ~/.venvs/imagegen + imagegen[mlx] on Apple Silicon, imagegen[cuda] on Linux
+make install    # ~/.venvs/imgen + imgen[mlx] on Apple Silicon, imgen[cuda] on Linux
 make test       # unit tests (no weights needed)
 make fmt        # format the code in place (ruff format)
 make style      # format in place, then lint (ruff format + ruff check)

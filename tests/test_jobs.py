@@ -3,8 +3,8 @@ import importlib
 
 def _fresh(tmp_path, monkeypatch):
     monkeypatch.setenv("IG_RUNTIME_DIR", str(tmp_path))
-    import imagegen.config as c
-    import imagegen.jobs as j
+    import imgen.config as c
+    import imgen.jobs as j
 
     importlib.reload(c)
     importlib.reload(j)
@@ -61,7 +61,7 @@ def test_spawn_runner_detaches(tmp_path, monkeypatch):
     j.create_job("ab12cd", model="ideogram4", out="/tmp/o.png", request={})
     pid = j.spawn_runner("ab12cd")
     assert pid == 5555
-    assert calls["argv"][1:] == ["-m", "imagegen.jobs", "ab12cd"]
+    assert calls["argv"][1:] == ["-m", "imgen.jobs", "ab12cd"]
     assert calls["kw"]["start_new_session"] is True
 
 

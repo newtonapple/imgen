@@ -4,7 +4,7 @@ import stat
 
 def _fresh_config(tmp_path, monkeypatch):
     monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
-    import imagegen.config as c
+    import imgen.config as c
 
     importlib.reload(c)
     return c

@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from imagegen.config import ModelSpec
-from imagegen.engine.factory import create_pipeline
-from imagegen.platform import Backend, is_apple_silicon
+from imgen.config import ModelSpec
+from imgen.engine.factory import create_pipeline
+from imgen.platform import Backend, is_apple_silicon
 
 MODEL = Path("/Volumes/PRO-G40/data/models/image-gen/ideogram-4-fp8")
 
@@ -43,7 +43,7 @@ def test_mlx_engine_generates_image():
 def test_mlx_engine_clear_error_on_wrong_layout(tmp_path):
     # An empty/MLXBits-style dir fails mflux's fast layout check (no weight load);
     # MlxEngine should raise a clear, actionable error rather than mflux's raw one.
-    from imagegen.engine.mlx_engine import MlxEngine
+    from imgen.engine.mlx_engine import MlxEngine
 
     with pytest.raises(RuntimeError, match="official fp8 checkpoint layout"):
         MlxEngine(ModelSpec(name="bad", path=tmp_path, backend=Backend.MLX))

@@ -1,7 +1,7 @@
 # tests/test_cli_provider.py
 import json
 from types import SimpleNamespace
-from imagegen.magic_prompt.cli_provider import CliMagicPromptProvider
+from imgen.magic_prompt.cli_provider import CliMagicPromptProvider
 
 CAPTION = {
     "high_level_description": "a cat",

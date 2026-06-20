@@ -83,7 +83,7 @@ def spawn_runner(job_id: str) -> int:
     logp.parent.mkdir(parents=True, exist_ok=True)
     with open(logp, "a") as logf:
         proc = subprocess.Popen(
-            [sys.executable, "-m", "imagegen.jobs", job_id],
+            [sys.executable, "-m", "imgen.jobs", job_id],
             stdin=subprocess.DEVNULL,
             stdout=logf,
             stderr=logf,
@@ -160,7 +160,7 @@ def clean(*, older_than_days: int | None = None, truncate_running: bool = False)
 
 def _main(argv: list[str]) -> int:
     if len(argv) != 1:
-        print("usage: python -m imagegen.jobs <job-id>", file=sys.stderr)
+        print("usage: python -m imgen.jobs <job-id>", file=sys.stderr)
         return 2
     return run_job(argv[0])
 

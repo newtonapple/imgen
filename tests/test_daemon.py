@@ -4,8 +4,8 @@ import os
 
 def _fresh(tmp_path, monkeypatch):
     monkeypatch.setenv("IG_RUNTIME_DIR", str(tmp_path))
-    import imagegen.config as c
-    import imagegen.daemon as d
+    import imgen.config as c
+    import imgen.daemon as d
 
     importlib.reload(c)
     importlib.reload(d)

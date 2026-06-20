@@ -1,8 +1,8 @@
 import click
 import pytest
 
-from imagegen import models
-from imagegen.platform import Backend
+from imgen import models
+from imgen.platform import Backend
 
 
 class FakeModel:

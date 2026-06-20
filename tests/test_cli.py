@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 from click.testing import CliRunner, Result
 
-from imagegen.cli import ig
+from imgen.cli import ig
 
 
 def run(args: list[str]) -> Result:
@@ -49,8 +49,8 @@ def test_model_show_outputs_info() -> None:
 
 
 def test_gen_streams_and_writes_sidecar(monkeypatch: Any, tmp_path: Any) -> None:
-    import imagegen.cli.actions as actions
-    from imagegen import daemon
+    import imgen.cli.actions as actions
+    from imgen import daemon
 
     monkeypatch.setattr(daemon, "ensure_daemon", lambda name: "/tmp/fake.sock")
 
@@ -86,8 +86,8 @@ def test_gen_streams_and_writes_sidecar(monkeypatch: Any, tmp_path: Any) -> None
 
 
 def test_gen_with_seed_and_preset(monkeypatch: Any, tmp_path: Any) -> None:
-    import imagegen.cli.actions as actions
-    from imagegen import daemon
+    import imgen.cli.actions as actions
+    from imgen import daemon
 
     monkeypatch.setattr(daemon, "ensure_daemon", lambda name: "/tmp/fake.sock")
     seen: dict[str, Any] = {}
@@ -139,8 +139,8 @@ def test_gen_with_seed_and_preset(monkeypatch: Any, tmp_path: Any) -> None:
 
 def test_gen_error_from_daemon(monkeypatch: Any, tmp_path: Any) -> None:
     """When the daemon returns ok=False, gen exits non-zero with a clean error."""
-    import imagegen.cli.actions as actions
-    from imagegen import daemon
+    import imgen.cli.actions as actions
+    from imgen import daemon
 
     monkeypatch.setattr(daemon, "ensure_daemon", lambda name: "/tmp/fake.sock")
     monkeypatch.setattr(
@@ -160,7 +160,7 @@ def test_gen_error_from_daemon(monkeypatch: Any, tmp_path: Any) -> None:
 
 
 def test_serve_already_running_errors(monkeypatch: Any) -> None:
-    from imagegen import daemon
+    from imgen import daemon
 
     monkeypatch.setattr(daemon, "live_record", lambda name: {"pid": 999, "socket": "/tmp/x.sock"})
     monkeypatch.setattr(
@@ -175,8 +175,8 @@ def test_serve_already_running_errors(monkeypatch: Any) -> None:
 
 
 def test_serve_detach(monkeypatch: Any, tmp_path: Any) -> None:
-    from imagegen import daemon
-    from imagegen import config as cfg_mod
+    from imgen import daemon
+    from imgen import config as cfg_mod
 
     monkeypatch.setattr(daemon, "live_record", lambda name: None)
     started: list[str] = []
@@ -194,7 +194,7 @@ def test_serve_detach(monkeypatch: Any, tmp_path: Any) -> None:
 
 
 def test_stop_running_daemon(monkeypatch: Any) -> None:
-    from imagegen import daemon
+    from imgen import daemon
 
     stopped: list[str] = []
 
@@ -210,7 +210,7 @@ def test_stop_running_daemon(monkeypatch: Any) -> None:
 
 
 def test_stop_no_daemon(monkeypatch: Any) -> None:
-    from imagegen import daemon
+    from imgen import daemon
 
     monkeypatch.setattr(daemon, "stop", lambda name: False)
     r = run(["ideogram4", "stop"])
@@ -224,7 +224,7 @@ def test_stop_no_daemon(monkeypatch: Any) -> None:
 
 
 def test_model_stop_all(monkeypatch: Any) -> None:
-    from imagegen import daemon
+    from imgen import daemon
 
     monkeypatch.setattr(
         daemon,
@@ -253,7 +253,7 @@ def test_config_set_no_out_required(monkeypatch: Any, tmp_path: Any) -> None:
     monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
     r = run(["ideogram4", "config", "set", "magic-provider", "openrouter"])
     assert r.exit_code == 0, r.output
-    from imagegen.config import Config
+    from imgen.config import Config
 
     assert Config.load(tmp_path / "config.toml").magic_prompt_provider() == "openrouter"
 
@@ -262,7 +262,7 @@ def test_config_set_key_writes_secrets(monkeypatch: Any, tmp_path: Any) -> None:
     monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
     r = run(["ideogram4", "config", "set-key", "openrouter", "sk-x"])
     assert r.exit_code == 0, r.output
-    from imagegen.config import Secrets
+    from imgen.config import Secrets
 
     s = Secrets.load(tmp_path / "secrets.toml")
     assert s.api_key("openrouter") == "sk-x"
@@ -279,7 +279,7 @@ def test_config_set_weights_path_persists(monkeypatch: Any, tmp_path: Any) -> No
     monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
     r = run(["ideogram4", "config", "set", "weights-path", "/weights/ig4"])
     assert r.exit_code == 0, r.output
-    from imagegen.config import Config
+    from imgen.config import Config
 
     assert Config.load(tmp_path / "config.toml").model_path("ideogram4") is not None
 
@@ -317,8 +317,8 @@ def test_gen_unknown_model_clean_error(tmp_path: Any) -> None:
 def test_serve_backend_unsupported_error(monkeypatch: Any, tmp_path: Any) -> None:
     """serve (foreground) errors cleanly when the configured backend is unsupported."""
     monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
-    from imagegen import daemon, models
-    from imagegen.platform import Backend
+    from imgen import daemon, models
+    from imgen.platform import Backend
 
     m = models.get("ideogram4")
     monkeypatch.setattr(m, "supported_backends", [Backend.MLX])
@@ -344,7 +344,7 @@ def test_model_show_unknown_model_clean_error() -> None:
 
 
 def test_model_jobs_list(monkeypatch: Any) -> None:
-    from imagegen import jobs
+    from imgen import jobs
 
     monkeypatch.setattr(
         jobs,
@@ -377,7 +377,7 @@ def test_model_jobs_list(monkeypatch: Any) -> None:
 
 
 def test_model_jobs_show_one(monkeypatch: Any) -> None:
-    from imagegen import jobs
+    from imgen import jobs
 
     monkeypatch.setattr(
         jobs,
@@ -398,7 +398,7 @@ def test_model_jobs_show_one(monkeypatch: Any) -> None:
 
 
 def test_model_jobs_show_unknown(monkeypatch: Any) -> None:
-    from imagegen import jobs
+    from imgen import jobs
 
     monkeypatch.setattr(jobs, "read_job", lambda jid: None)
     r = run(["model", "jobs", "nope12"])
@@ -407,7 +407,7 @@ def test_model_jobs_show_unknown(monkeypatch: Any) -> None:
 
 
 def test_model_clean_cmd(monkeypatch: Any) -> None:
-    from imagegen import jobs
+    from imgen import jobs
 
     monkeypatch.setattr(jobs, "clean", lambda **kw: {"jobs": 2, "logs": 1, "truncated": 0})
     r = run(["model", "clean"])
@@ -416,7 +416,7 @@ def test_model_clean_cmd(monkeypatch: Any) -> None:
 
 
 def test_model_list_shows_state(monkeypatch: Any) -> None:
-    from imagegen import daemon
+    from imgen import daemon
 
     monkeypatch.setattr(
         daemon,
@@ -430,7 +430,7 @@ def test_model_list_shows_state(monkeypatch: Any) -> None:
 
 def test_model_list_shows_crashed(monkeypatch: Any) -> None:
     """A dead pid whose record was 'busy' = crashed mid-job → labeled, with its log."""
-    from imagegen import daemon
+    from imgen import daemon
 
     monkeypatch.setattr(
         daemon,
@@ -446,7 +446,7 @@ def test_model_list_shows_crashed(monkeypatch: Any) -> None:
 
 def test_model_list_dead_idle_shows_dash(monkeypatch: Any) -> None:
     """A dead pid that was idle just exited (not a crash) → '-', not 'crashed'."""
-    from imagegen import daemon
+    from imgen import daemon
 
     monkeypatch.setattr(
         daemon,
@@ -459,11 +459,11 @@ def test_model_list_dead_idle_shows_dash(monkeypatch: Any) -> None:
 
 
 def test_gen_queue_spawns_and_prints_job(monkeypatch: Any, tmp_path: Any) -> None:
-    from imagegen import jobs
+    from imgen import jobs
 
     monkeypatch.setattr(jobs, "spawn_runner", lambda job_id: 4242)
     monkeypatch.setenv("IG_RUNTIME_DIR", str(tmp_path))
-    import imagegen.config as cfg
+    import imgen.config as cfg
     import importlib
 
     importlib.reload(cfg)

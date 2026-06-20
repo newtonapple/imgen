@@ -1,5 +1,5 @@
 import pytest
-from imagegen.caption import CaptionError, model_caption, validate_caption
+from imgen.caption import CaptionError, model_caption, validate_caption
 
 GOOD = {
     "high_level_description": "a cat",

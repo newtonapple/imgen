@@ -1,4 +1,4 @@
-# src/imagegen/magic_prompt/cli_provider.py
+# src/imgen/magic_prompt/cli_provider.py
 """Magic-prompt via a local CLI (codex / claude / pi) — no API key needed."""
 
 from __future__ import annotations

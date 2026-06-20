@@ -1,12 +1,12 @@
 # Project venv lives OUTSIDE iCloud so uv hardlinks from its global cache (no
-# duplicated bytes) and iCloud never syncs it. Override with IMAGEGEN_VENV.
-IMAGEGEN_VENV ?= $(HOME)/.venvs/imagegen
-PY := $(IMAGEGEN_VENV)/bin/python
+# duplicated bytes) and iCloud never syncs it. Override with IMGEN_VENV.
+IMGEN_VENV ?= $(HOME)/.venvs/imgen
+PY := $(IMGEN_VENV)/bin/python
 
 .PHONY: install test lint fmt style platform clean
 
-# Create the venv (outside iCloud) and install imagegen (editable) + the platform
-# backend extra. Also installs the `imagegen` CLI entry point into the venv.
+# Create the venv (outside iCloud) and install imgen (editable) + the platform
+# backend extra. Also installs the `imgen` CLI entry point into the venv.
 install:
 	./scripts/setup.sh
 
@@ -28,7 +28,7 @@ lint:
 	$(PY) -m mypy src tests
 
 platform:
-	$(PY) -m imagegen.cli platform
+	$(PY) -m imgen.cli platform
 
 clean:
-	rm -rf "$(IMAGEGEN_VENV)"
+	rm -rf "$(IMGEN_VENV)"

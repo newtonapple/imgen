@@ -29,7 +29,7 @@ def _fake_pipeline():
 
 
 def test_handle_run_emits_progress_and_result(tmp_path):
-    from imagegen.worker import handle_request
+    from imgen.worker import handle_request
 
     out = tmp_path / "o.png"
     events: list[dict[str, object]] = []
@@ -53,7 +53,7 @@ def test_handle_run_emits_progress_and_result(tmp_path):
 
 
 def test_handle_unknown_op_returns_error():
-    from imagegen.worker import handle_request
+    from imgen.worker import handle_request
 
     resp = handle_request(_fake_pipeline(), {"op": "nope"}, lambda _d: None)
     assert resp["ok"] is False and "op" in resp["error"].lower()
@@ -64,7 +64,7 @@ def test_socket_roundtrip(tmp_path):
     import tempfile
     import threading
     import time
-    from imagegen.worker import send_request, serve
+    from imgen.worker import send_request, serve
 
     with tempfile.TemporaryDirectory(dir="/tmp") as td:
         sock = os.path.join(td, "w.sock")
@@ -95,7 +95,7 @@ def test_serve_invokes_job_hooks(tmp_path):
     import tempfile
     import threading
     import time
-    from imagegen.worker import send_request, serve
+    from imgen.worker import send_request, serve
 
     events: list[str] = []
     with tempfile.TemporaryDirectory(dir="/tmp") as td:
