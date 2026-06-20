@@ -3,7 +3,7 @@
 IMAGEGEN_VENV ?= $(HOME)/.venvs/imagegen
 PY := $(IMAGEGEN_VENV)/bin/python
 
-.PHONY: install test lint fmt platform clean
+.PHONY: install test lint fmt style platform clean
 
 # Create the venv (outside iCloud) and install imagegen (editable) + the platform
 # backend extra. Also installs the `imagegen` CLI entry point into the venv.
@@ -16,6 +16,10 @@ test:
 # Format the code in place (ruff format).
 fmt:
 	$(PY) -m ruff format src tests
+
+# Format in place, then lint (developer convenience).
+style: fmt
+	$(PY) -m ruff check src tests
 
 # Lint + verify formatting (no changes made).
 lint:

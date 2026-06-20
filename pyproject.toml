@@ -29,6 +29,7 @@ cuda = [
 dev = [
   "pytest>=8.0",
   "ruff>=0.6",
+  "mypy>=1.11",
 ]
 
 [project.scripts]
@@ -56,3 +57,37 @@ pythonpath = ["src"]
 markers = [
   "integration: requires real weights + backend deps (deselect with -m 'not integration')",
 ]
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "src"
+files = ["src", "tests"]
+strict = true
+show_error_codes = true
+warn_unused_ignores = true
+
+# Tests are checked for real type bugs but not forced to annotate every
+# fixture / fake / monkeypatch helper.
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+implicit_reexport = true
+
+# Untyped / platform-only third-party deps (no stubs, and the CUDA-only deps
+# are not installed on the Mac dev box). Both bare and wildcard forms so the
+# top-level `import torch` and the `from mflux.x import y` paths are both covered.
+[[tool.mypy.overrides]]
+module = [
+  "mflux", "mflux.*",
+  "mlx", "mlx.*",
+  "torch", "torch.*",
+  "transformers", "transformers.*",
+  "accelerate", "accelerate.*",
+  "safetensors", "safetensors.*",
+  "einops", "einops.*",
+  "huggingface_hub", "huggingface_hub.*",
+  "ideogram4", "ideogram4.*",
+]
+ignore_missing_imports = true
