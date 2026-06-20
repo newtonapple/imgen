@@ -1,11 +1,11 @@
-"""`ig model` subgroup: list / show / set-path."""
+"""`ig model` subgroup: list / show."""
 
 from __future__ import annotations
 
 import click
 
 from .. import models
-from ..config import Config, _config_path
+from ..config import Config
 
 
 @click.group("model")
@@ -35,28 +35,10 @@ def show_cmd(name: str) -> None:
     click.echo(f"description: {m.description}")
     click.echo(f"backends: {', '.join(b.value for b in m.supported_backends)}")
     click.echo(f"weights path: {cfg.model_path(m.name) or '(not set)'}")
-    click.echo("gen options:")
-    for opt in m.gen_options:
-        if isinstance(opt, click.Option):
-            opts_str = ", ".join(opt.opts)
-            click.echo(f"  {opts_str}")
+    click.echo(f"model options: run `ig {m.name} gen --help`")
     click.echo("config keys:")
     for key, help_text in m.config_keys.items():
         click.echo(f"  {key}: {help_text}")
 
 
 model_group.add_command(show_cmd, name="get")
-
-
-@model_group.command("set-path")
-@click.argument("name")
-@click.argument("path", type=click.Path())
-def set_path_cmd(name: str, path: str) -> None:
-    try:
-        models.get(name)  # validate the model exists
-    except KeyError as exc:
-        raise click.ClickException(str(exc)) from exc
-    cfg = Config.load()
-    cfg.set_model_path(name, path)
-    cfg.save()
-    click.echo(f"set {name} weights path -> {path}  ({_config_path()})")
