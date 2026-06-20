@@ -9,7 +9,7 @@ from typing import Any
 
 import click
 
-from .. import daemon
+from .. import daemon, metadata
 from ..config import Config, Secrets, resolve_weights_path, daemon_log_path
 from ..magic_prompt.providers import ALL_PROVIDERS
 from ..platform import Backend, default_backend
@@ -70,19 +70,8 @@ def run_gen(model: Any, out: str, gen_opts: dict[str, Any]) -> None:
     if not result.get("ok"):
         raise click.ClickException(str(result.get("error", "generation failed")))
 
-    summary: dict[str, Any] = {
-        "seed": result.get("seed"),
-        "width": result.get("width"),
-        "height": result.get("height"),
-        "preset": result.get("preset"),
-        "backend": result.get("backend"),
-        "duration_s": result.get("duration_s"),
-        "out": out,
-        "model": model.name,
-        "prompt": gen_opts.get("prompt"),
-        "caption": result.get("caption"),
-    }
-    Path(out + ".json").write_text(_json.dumps(summary, indent=2))  # sidecar
+    summary = metadata.build_summary(out, result, model=model.name, prompt=gen_opts.get("prompt"))
+    metadata.write_sidecar(out, summary)  # sidecar
     _json.dump(summary, sys.stdout, indent=2)
     sys.stdout.write("\n")
 
