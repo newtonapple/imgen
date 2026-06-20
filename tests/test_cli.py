@@ -41,7 +41,7 @@ def test_model_set_path_writes_config(tmp_path, monkeypatch):
     assert r.exit_code == 0
     assert (tmp_path / "config.toml").exists()
     assert (
-        c.Config.load(tmp_path / "config.toml").model_path("ideogram4").as_posix() == "/weights/ig4"
+        c.Config.load(tmp_path / "config.toml").model_path("ideogram4").as_posix() == "/weights/ig4"  # type: ignore[union-attr]
     )
     importlib.reload(c)
 
@@ -96,7 +96,7 @@ def test_gen_routes_globals_and_model_opts(monkeypatch, tmp_path):
             seen["run"] = {"prompt": prompt, "width": width, "seed": seed, **opts}
             return FakeResult()
 
-    monkeypatch.setattr(genmod.models, "get", lambda name: FakeModel())
+    monkeypatch.setattr(genmod.models, "get", lambda name: FakeModel())  # type: ignore[attr-defined]
     monkeypatch.setattr(genmod, "resolve_weights_path", lambda name, override, cfg: tmp_path / "w")
 
     out = tmp_path / "o.png"
@@ -146,7 +146,7 @@ def test_serve_builds_pipeline_and_calls_worker(monkeypatch, tmp_path):
             seen["opts"] = opts
             return "PIPE"
 
-    monkeypatch.setattr(servemod.models, "get", lambda name: FakeModel())
+    monkeypatch.setattr(servemod.models, "get", lambda name: FakeModel())  # type: ignore[attr-defined]
     monkeypatch.setattr(
         servemod, "resolve_weights_path", lambda name, override, cfg: tmp_path / "w"
     )
@@ -168,8 +168,8 @@ def test_serve_builds_pipeline_and_calls_worker(monkeypatch, tmp_path):
         ]
     )
     assert r.exit_code == 0, r.output
-    assert seen["pipeline"] == "PIPE"
-    assert seen["socket"] == str(tmp_path / "s.sock")
+    assert seen["pipeline"] == "PIPE"  # type: ignore[comparison-overlap]
+    assert seen["socket"] == str(tmp_path / "s.sock")  # type: ignore[comparison-overlap]
     assert seen["opts"]["preset"] == "V4_TURBO_12"
 
 
@@ -211,7 +211,7 @@ def test_gen_result_missing_preset_attribute(monkeypatch, tmp_path):
         def run_one(self, pipeline, *, prompt, width, height, seed, **opts):
             return FakeResultMissingPreset()
 
-    monkeypatch.setattr(genmod.models, "get", lambda name: FakeModel())
+    monkeypatch.setattr(genmod.models, "get", lambda name: FakeModel())  # type: ignore[attr-defined]
     monkeypatch.setattr(genmod, "resolve_weights_path", lambda name, override, cfg: tmp_path / "w")
 
     out = tmp_path / "test.png"
@@ -308,7 +308,7 @@ def test_serve_unsupported_backend_clean_error(monkeypatch, tmp_path):
         def build_pipeline(self, *, weights_path, backend, **opts):
             raise AssertionError("build_pipeline should not be called")
 
-    monkeypatch.setattr(servemod.models, "get", lambda name: FakeModel())
+    monkeypatch.setattr(servemod.models, "get", lambda name: FakeModel())  # type: ignore[attr-defined]
     monkeypatch.setattr(
         servemod, "resolve_weights_path", lambda name, override, cfg: tmp_path / "w"
     )
@@ -365,7 +365,7 @@ def test_gen_short_flags_w_h_o(monkeypatch, tmp_path):
             seen["wh"] = (width, height)
             return FakeResult()
 
-    monkeypatch.setattr(genmod.models, "get", lambda name: FakeModel())
+    monkeypatch.setattr(genmod.models, "get", lambda name: FakeModel())  # type: ignore[attr-defined]
     monkeypatch.setattr(genmod, "resolve_weights_path", lambda name, override, cfg: tmp_path / "w")
 
     out = tmp_path / "o.png"

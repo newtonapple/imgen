@@ -12,7 +12,7 @@ class FakeEngine:
     def generate(self, caption, *, width, height, preset="V4_DEFAULT_20", seed=None):
         self.calls.append((caption, seed))
         return GenerationResult(
-            image=object(),
+            image=object(),  # type: ignore[arg-type]
             seed=seed or 7,
             width=width,
             height=height,

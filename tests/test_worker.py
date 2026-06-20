@@ -20,7 +20,7 @@ class FakeImg:
 class FakePipeline:
     def run(self, prompt, *, width, height, preset, seed, target_elements=0):
         return GenerationResult(
-            image=FakeImg(),
+            image=FakeImg(),  # type: ignore[arg-type]
             seed=seed or 1,
             width=width,
             height=height,

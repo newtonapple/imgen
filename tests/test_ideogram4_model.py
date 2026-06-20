@@ -57,8 +57,8 @@ def test_build_pipeline_passes_quantize_and_builds_provider(monkeypatch):
         target_elements=0,
         caption=None,
     )
-    assert pipe[0] == "PIPE" and pipe[1] == "ENGINE"
-    assert pipe[2] == ("PROVIDER", "codex - gpt-5.5")
+    assert pipe[0] == "PIPE" and pipe[1] == "ENGINE"  # type: ignore[index]
+    assert pipe[2] == ("PROVIDER", "codex - gpt-5.5")  # type: ignore[index]
     assert calls["quantize"] == 8  # converted to int
     assert calls["backend"] == Backend.MLX
 
@@ -84,7 +84,7 @@ def test_run_one_prompt_path_calls_pipeline_run():
         quantize=None,
         magic_model="x",
     )
-    assert r == ("run", "a cat", "V4_TURBO_12", 7, 3)
+    assert r == ("run", "a cat", "V4_TURBO_12", 7, 3)  # type: ignore[comparison-overlap]
 
 
 def test_run_one_caption_path_calls_pipeline_generate(tmp_path):
@@ -113,4 +113,4 @@ def test_run_one_caption_path_calls_pipeline_generate(tmp_path):
         quantize=None,
         magic_model="x",
     )
-    assert r == ("generate", "x", "V4_DEFAULT_20", 1)
+    assert r == ("generate", "x", "V4_DEFAULT_20", 1)  # type: ignore[comparison-overlap]
