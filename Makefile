@@ -21,10 +21,11 @@ fmt:
 style: fmt
 	$(PY) -m ruff check src tests
 
-# Lint + verify formatting (no changes made).
+# Lint + verify formatting + type-check (no changes made). The merge gate.
 lint:
 	$(PY) -m ruff check src tests
 	$(PY) -m ruff format --check src tests
+	$(PY) -m mypy src tests
 
 platform:
 	$(PY) -m imagegen.cli platform
