@@ -9,10 +9,10 @@ from typing import Any
 import click
 
 from .. import models
-from ..config import Config, ModelSpec
+from ..config import Config, ModelSpec, Secrets
 from ..engine.base import GenerationResult
 from ..engine.factory import create_pipeline
-from ..magic_prompt.cli_provider import CliMagicPromptProvider
+from ..magic_prompt.providers import make_magic_provider, resolve_magic_settings
 from ..pipeline import Pipeline
 from ..platform import Backend
 
@@ -28,11 +28,33 @@ PRESETS = ["V4_TURBO_12", "V4_DEFAULT_20", "V4_QUALITY_48"]
     help="MLX: quantize fp8 to N bits on load (8 = int8); default keeps fp8",
 )
 @click.option(
-    "--magic-model",
-    "magic_model",
-    default="codex - gpt-5.5",
-    show_default=True,
-    help="magic-prompt provider/model string",
+    "--magic-prompt-provider",
+    "--mp",
+    "magic_prompt_provider",
+    default=None,
+    help="magic-prompt provider: codex|claude|pi|anthropic|openai|openrouter",
+)
+@click.option("--magic-model", "--mm", "magic_model", default=None, help="magic-prompt model id")
+@click.option(
+    "--set-magic-prompt-provider",
+    "--set-mp",
+    "set_magic_prompt_provider",
+    default=None,
+    help="persist the default magic-prompt provider",
+)
+@click.option(
+    "--set-magic-model",
+    "--set-mm",
+    "set_magic_model",
+    default=None,
+    help="persist the default magic-prompt model",
+)
+@click.option(
+    "--set-magic-prompt-api-key",
+    "--set-mk",
+    "set_magic_prompt_api_key",
+    default=None,
+    help="store an API key for the active provider in ~/.config/ig/secrets.toml",
 )
 @click.option("--target-elements", "target_elements", type=int, default=0, show_default=True)
 @click.option(
@@ -64,8 +86,11 @@ class Ideogram4Model:
             backend=backend,
             quantize=int(quantize) if quantize else None,
         )
-        provider = CliMagicPromptProvider(opts.get("magic_model", "codex - gpt-5.5"))
-        return Pipeline(engine=engine, magic_prompt=provider)
+        config = Config.load()
+        secrets = Secrets.load()
+        provider, model = resolve_magic_settings(opts, config=config, secrets=secrets)
+        magic = make_magic_provider(provider, model, secrets=secrets)
+        return Pipeline(engine=engine, magic_prompt=magic)
 
     def run_one(
         self,

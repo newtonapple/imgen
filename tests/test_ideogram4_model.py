@@ -20,19 +20,28 @@ def test_model_options_defaults():
     p = _parse([])
     assert p["preset"] == "V4_DEFAULT_20"
     assert p["quantize"] is None
-    assert p["magic_model"] == "codex - gpt-5.5"
+    assert p["magic_prompt_provider"] is None
+    assert p["magic_model"] is None
     assert p["target_elements"] == 0
     assert p["caption"] is None
 
 
 def test_model_options_parsing():
-    p = _parse(["--preset", "V4_TURBO_12", "--quantize", "8", "--magic-model", "pi - x - y"])
+    p = _parse(["--mp", "openrouter", "--mm", "openrouter/free", "--preset", "V4_TURBO_12"])
+    assert p["magic_prompt_provider"] == "openrouter"
+    assert p["magic_model"] == "openrouter/free"
     assert p["preset"] == "V4_TURBO_12"
-    assert p["quantize"] == "8"
-    assert p["magic_model"] == "pi - x - y"
 
 
-def test_build_pipeline_passes_quantize_and_builds_provider(monkeypatch):
+def test_set_flags_parse():
+    p = _parse(["--set-mp", "openrouter", "--set-mm", "openrouter/free", "--set-mk", "sk-x"])
+    assert p["set_magic_prompt_provider"] == "openrouter"
+    assert p["set_magic_model"] == "openrouter/free"
+    assert p["set_magic_prompt_api_key"] == "sk-x"
+
+
+def test_build_pipeline_resolves_and_builds_provider(monkeypatch, tmp_path):
+    monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
     calls = {}
 
     def fake_create_pipeline(spec, backend=None, quantize=None):
@@ -42,7 +51,16 @@ def test_build_pipeline_passes_quantize_and_builds_provider(monkeypatch):
         return "ENGINE"
 
     monkeypatch.setattr(ig4, "create_pipeline", fake_create_pipeline)
-    monkeypatch.setattr(ig4, "CliMagicPromptProvider", lambda model: ("PROVIDER", model))
+    monkeypatch.setattr(
+        ig4,
+        "resolve_magic_settings",
+        lambda opts, *, config, secrets: ("openrouter", "openrouter/free"),
+    )
+    monkeypatch.setattr(
+        ig4,
+        "make_magic_provider",
+        lambda provider, model, *, secrets: ("PROVIDER", provider, model),
+    )
     monkeypatch.setattr(
         ig4, "Pipeline", lambda engine, magic_prompt: ("PIPE", engine, magic_prompt)
     )
@@ -52,13 +70,11 @@ def test_build_pipeline_passes_quantize_and_builds_provider(monkeypatch):
         weights_path=Path("/w"),
         backend=Backend.MLX,
         quantize="8",
-        magic_model="codex - gpt-5.5",
-        preset="V4_DEFAULT_20",
-        target_elements=0,
-        caption=None,
+        magic_prompt_provider="openrouter",
+        magic_model="openrouter/free",
     )
     assert pipe[0] == "PIPE" and pipe[1] == "ENGINE"  # type: ignore[index]
-    assert pipe[2] == ("PROVIDER", "codex - gpt-5.5")  # type: ignore[index]
+    assert pipe[2] == ("PROVIDER", "openrouter", "openrouter/free")  # type: ignore[index]
     assert calls["quantize"] == 8  # converted to int
     assert calls["backend"] == Backend.MLX
 
