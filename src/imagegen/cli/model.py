@@ -35,9 +35,14 @@ def show_cmd(name: str) -> None:
     click.echo(f"description: {m.description}")
     click.echo(f"backends: {', '.join(b.value for b in m.supported_backends)}")
     click.echo(f"weights path: {cfg.model_path(m.name) or '(not set)'}")
-    click.echo("model options (pass after the model name):")
-    with click.Context(m.model_options) as ctx:
-        click.echo(m.model_options.get_help(ctx))
+    click.echo("gen options:")
+    for opt in m.gen_options:
+        if isinstance(opt, click.Option):
+            opts_str = ", ".join(opt.opts)
+            click.echo(f"  {opts_str}")
+    click.echo("config keys:")
+    for key, help_text in m.config_keys.items():
+        click.echo(f"  {key}: {help_text}")
 
 
 model_group.add_command(show_cmd, name="get")

@@ -10,7 +10,7 @@ from ..platform import Backend  # re-export
 if TYPE_CHECKING:
     import click
 
-    from ..config import Config
+    from ..config import Config, Secrets
     from ..engine.base import GenerationResult
     from ..pipeline import Pipeline
 
@@ -23,21 +23,11 @@ class Model(Protocol):
     aliases: list[str]
     description: str
     supported_backends: list[Backend]
-    model_options: "click.Command"  # parses post-`--` args into params
-
-    def default_weights_path(self, cfg: "Config") -> Path | None: ...
+    gen_options: "list[click.Parameter]"  # per-request options for `gen`
+    config_keys: dict[str, str]  # `config set` key -> help text
 
     def build_pipeline(
-        self, *, weights_path: Path, backend: Backend, **opts: Any
+        self, *, weights_path: Path, backend: Backend, config: "Config", secrets: "Secrets"
     ) -> "Pipeline": ...
 
-    def run_one(
-        self,
-        pipeline: Any,
-        *,
-        prompt: str | None,
-        width: int,
-        height: int,
-        seed: int | None,
-        **opts: Any,
-    ) -> "GenerationResult": ...
+    def run_one(self, pipeline: Any, **gen_opts: Any) -> "GenerationResult": ...
