@@ -156,7 +156,7 @@ def run_daemon(
             sock.unlink()
 
 
-def ensure_daemon(model: str, *, log: bool = True) -> str:
+def ensure_daemon(model: str) -> str:
     """Return a live socket path for `model`, spawning a detached `ig <model> serve` if needed."""
     rec = live_record(model)
     if rec is not None:
@@ -171,11 +171,11 @@ def ensure_daemon(model: str, *, log: bool = True) -> str:
         if rec is not None:
             return str(rec["socket"])
         _spawn_detached(model)
-        sock = config.daemon_socket_path(model)
         deadline = time.time() + _START_TIMEOUT_S
         while time.time() < deadline:
-            if live_record(model) is not None:
-                return str(sock)
+            ready = live_record(model)
+            if ready is not None:
+                return str(ready["socket"])
             time.sleep(0.25)
         raise RuntimeError(
             f"daemon for {model!r} did not become ready in {_START_TIMEOUT_S}s; "
@@ -186,11 +186,12 @@ def ensure_daemon(model: str, *, log: bool = True) -> str:
 def _spawn_detached(model: str) -> None:
     logp = config.daemon_log_path(model)
     logp.parent.mkdir(parents=True, exist_ok=True)
-    logf = open(logp, "a")  # noqa: SIM115
-    subprocess.Popen(
-        [sys.executable, "-m", "imagegen.cli", model, "serve"],
-        stdin=subprocess.DEVNULL,
-        stdout=logf,
-        stderr=logf,
-        start_new_session=True,  # detach from the controlling terminal / process group
-    )
+    # Popen duplicates the fd for the child, so closing our copy here is safe.
+    with open(logp, "a") as logf:
+        subprocess.Popen(
+            [sys.executable, "-m", "imagegen.cli", model, "serve"],
+            stdin=subprocess.DEVNULL,
+            stdout=logf,
+            stderr=logf,
+            start_new_session=True,  # detach from the controlling terminal / process group
+        )
