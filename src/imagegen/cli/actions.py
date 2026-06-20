@@ -29,10 +29,6 @@ def run_gen(model: Any, out: str, gen_opts: dict[str, Any]) -> None:
     config = Config.load()
     secrets = Secrets.load()
     be = _resolve_backend(model, config)
-    if gen_opts.get("seed") is None:
-        sys.stderr.write(
-            "warning: no --seed; re-seeding will likely change the image substantially\n"
-        )
     weights = resolve_weights_path(model.name, None, config)
     pipeline = model.build_pipeline(
         weights_path=weights, backend=be, config=config, secrets=secrets
