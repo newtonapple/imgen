@@ -23,13 +23,10 @@ runs/
 *.png
 *.jpg
 *.jpeg
-!docs/**/*.png
-!docs/**/*.jpg
 
-# Local planning docs — kept on disk, not tracked (only docs/parameters.md is committed)
-docs/design/
-docs/notes/
-docs/plans/
+# Docs — kept on disk, not tracked. The README is the only committed doc;
+# everything under docs/ (design notes, specs, plans, parameters) stays local.
+docs/
 
 # Local secrets — API keys, never committed
 secrets.toml
