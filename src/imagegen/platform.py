@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import platform as _platform
 from enum import Enum
+from typing import Any
 
 
 class Backend(str, Enum):
@@ -40,7 +41,7 @@ def default_backend() -> Backend:
     return Backend.MLX if is_apple_silicon() else Backend.TORCH
 
 
-def platform_summary() -> dict:
+def platform_summary() -> dict[str, Any]:
     return {
         "system": _platform.system(),
         "machine": _platform.machine(),

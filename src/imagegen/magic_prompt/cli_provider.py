@@ -6,7 +6,9 @@ import json
 import re
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from ..engine.resolution import aspect_ratio
 
@@ -17,12 +19,19 @@ PI_MODELS_PATH = "~/.pi/agent/models.json"
 
 
 class CliMagicPromptProvider:
-    def __init__(self, model: str = "codex - gpt-5.5", timeout_s: int = 120, runner=subprocess.run):
+    def __init__(
+        self,
+        model: str = "codex - gpt-5.5",
+        timeout_s: int = 120,
+        runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+    ):
         self.model = model
         self.timeout_s = timeout_s
         self._runner = runner
 
-    def expand(self, prompt: str, *, width: int, height: int, target_elements: int = 0) -> dict:
+    def expand(
+        self, prompt: str, *, width: int, height: int, target_elements: int = 0
+    ) -> dict[str, Any]:
         ar = aspect_ratio(width, height)
         instruction = f'{_TEMPLATE}\n\nUSER PROMPT:\n{prompt}\n\n[ASPECT RATIO]\nReturn aspect_ratio exactly "{ar}" and compose bbox for a {width}x{height} canvas.'
         if target_elements > 0:
@@ -37,7 +46,7 @@ class CliMagicPromptProvider:
         )
         if result.returncode != 0:
             raise RuntimeError(f"magic-prompt CLI failed: {(result.stderr or result.stdout)[:300]}")
-        parsed = json.loads(self._extract_json(result.stdout))
+        parsed: dict[str, Any] = json.loads(self._extract_json(result.stdout))
         parsed["aspect_ratio"] = ar
         return parsed
 

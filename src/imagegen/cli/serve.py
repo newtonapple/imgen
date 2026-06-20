@@ -23,7 +23,14 @@ from ..worker import serve as worker_serve
 @click.option("--backend", type=click.Choice([b.value for b in Backend]), default=None)
 @click.argument("model_name")
 @click.argument("model_args", nargs=-1, type=click.UNPROCESSED)
-def serve(socket_path, log_path, model_path, backend, model_name, model_args):
+def serve(
+    socket_path: str,
+    log_path: str | None,
+    model_path: str | None,
+    backend: str | None,
+    model_name: str,
+    model_args: tuple[str, ...],
+) -> None:
     """ig serve [serve globals] <model> -- [model opts]"""
     try:
         model = models.get(model_name)

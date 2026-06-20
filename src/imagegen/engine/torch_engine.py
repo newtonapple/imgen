@@ -9,6 +9,8 @@ preset, seed) call onto `pipe(...)` using `ideogram4.PRESETS`.
 
 from __future__ import annotations
 
+from typing import Any
+
 from ..config import ModelSpec
 from .base import GenerationResult
 
@@ -16,7 +18,7 @@ from .base import GenerationResult
 class TorchEngine:
     backend = "torch"
 
-    def __init__(self, model: ModelSpec, device: str | None = None, **options):
+    def __init__(self, model: ModelSpec, device: str | None = None, **options: Any):
         self.model = model
         self.device = device
         self.options = options
@@ -25,7 +27,7 @@ class TorchEngine:
 
     def generate(
         self,
-        caption: dict | str,
+        caption: dict[str, Any] | str,
         *,
         width: int,
         height: int,

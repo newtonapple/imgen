@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import click
 
 from .. import models
-from ..config import ModelSpec
+from ..config import Config, ModelSpec
+from ..engine.base import GenerationResult
 from ..engine.factory import create_pipeline
 from ..magic_prompt.cli_provider import CliMagicPromptProvider
 from ..pipeline import Pipeline
@@ -39,7 +41,7 @@ PRESETS = ["V4_TURBO_12", "V4_DEFAULT_20", "V4_QUALITY_48"]
     default=None,
     help="prebuilt caption JSON; skips magic-prompt",
 )
-def _options(**_kwargs):  # callback unused; params are read via make_context
+def _options(**_kwargs: Any) -> None:  # callback unused; params are read via make_context
     pass
 
 
@@ -52,10 +54,10 @@ class Ideogram4Model:
     supported_backends = [Backend.MLX, Backend.TORCH]
     model_options = _options
 
-    def default_weights_path(self, cfg) -> Path | None:
+    def default_weights_path(self, cfg: Config) -> Path | None:
         return cfg.model_path(self.name)
 
-    def build_pipeline(self, *, weights_path: Path, backend: Backend, **opts) -> Pipeline:
+    def build_pipeline(self, *, weights_path: Path, backend: Backend, **opts: Any) -> Pipeline:
         quantize = opts.get("quantize")
         engine = create_pipeline(
             ModelSpec(name=self.name, path=Path(weights_path), backend=backend),
@@ -65,20 +67,32 @@ class Ideogram4Model:
         provider = CliMagicPromptProvider(opts.get("magic_model", "codex - gpt-5.5"))
         return Pipeline(engine=engine, magic_prompt=provider)
 
-    def run_one(self, pipeline, *, prompt, width, height, seed, **opts):
+    def run_one(
+        self,
+        pipeline: Any,
+        *,
+        prompt: str | None,
+        width: int,
+        height: int,
+        seed: int | None,
+        **opts: Any,
+    ) -> GenerationResult:
         preset = opts.get("preset", "V4_DEFAULT_20")
         caption = opts.get("caption")
+        result: GenerationResult
         if caption:
             cap = json.loads(Path(caption).read_text())
-            return pipeline.generate(cap, width=width, height=height, preset=preset, seed=seed)
-        return pipeline.run(
-            prompt,
-            width=width,
-            height=height,
-            preset=preset,
-            seed=seed,
-            target_elements=opts.get("target_elements", 0),
-        )
+            result = pipeline.generate(cap, width=width, height=height, preset=preset, seed=seed)
+        else:
+            result = pipeline.run(
+                prompt,
+                width=width,
+                height=height,
+                preset=preset,
+                seed=seed,
+                target_elements=opts.get("target_elements", 0),
+            )
+        return result
 
 
 models.register(Ideogram4Model())

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 REQUIRED_KEYS = ("high_level_description", "style_description", "compositional_deconstruction")
 
 
@@ -9,7 +11,7 @@ class CaptionError(ValueError):
     pass
 
 
-def validate_caption(caption: dict, *, raise_on_issues: bool = False) -> list[str]:
+def validate_caption(caption: dict[str, Any], *, raise_on_issues: bool = False) -> list[str]:
     issues: list[str] = []
     if not isinstance(caption, dict):
         issues.append(f"caption must be a dict, got {type(caption).__name__}")
@@ -22,7 +24,7 @@ def validate_caption(caption: dict, *, raise_on_issues: bool = False) -> list[st
     return issues
 
 
-def model_caption(caption: dict) -> dict:
+def model_caption(caption: dict[str, Any]) -> dict[str, Any]:
     """The caption as the image model expects it: only the schema root keys.
 
     Magic-prompt output can carry extra reasoning fields (notably ``aspect_ratio``,

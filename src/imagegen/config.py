@@ -12,6 +12,7 @@ import os
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from .platform import Backend, default_backend
 
@@ -31,7 +32,7 @@ class ModelSpec:
     @classmethod
     def from_path(
         cls,
-        path: str | os.PathLike,
+        path: str | os.PathLike[str],
         *,
         backend: Backend | str | None = None,
         name: str | None = None,
@@ -48,7 +49,7 @@ class EngineConfig:
 
     model: ModelSpec
     device: str | None = None  # backend-specific; None = auto
-    options: dict = field(default_factory=dict)
+    options: dict[str, Any] = field(default_factory=dict)
 
 
 def weights_root() -> Path | None:
@@ -74,7 +75,7 @@ CONFIG_PATH = _config_path()
 class Config:
     """Reads/writes ~/.config/ig/config.toml (per-model default weights paths)."""
 
-    def __init__(self, data: dict | None = None, path: Path | None = None):
+    def __init__(self, data: dict[str, Any] | None = None, path: Path | None = None):
         self.data = data or {}
         self.path = Path(path) if path is not None else _config_path()
 
@@ -90,7 +91,7 @@ class Config:
         p = self.data.get("models", {}).get(model, {}).get("path")
         return Path(p).expanduser() if p else None
 
-    def set_model_path(self, model: str, path: str | os.PathLike) -> None:
+    def set_model_path(self, model: str, path: str | os.PathLike[str]) -> None:
         models = self.data.setdefault("models", {})
         models.setdefault(model, {})["path"] = str(Path(path).expanduser())
 
@@ -99,7 +100,7 @@ class Config:
         self.path.write_text(_dump_toml(self.data))
 
 
-def _dump_toml(data: dict) -> str:
+def _dump_toml(data: dict[str, Any]) -> str:
     lines: list[str] = []
     for model, conf in data.get("models", {}).items():
         lines.append(f"[models.{model}]")
@@ -111,7 +112,7 @@ def _dump_toml(data: dict) -> str:
 
 def resolve_weights_path(
     model_name: str,
-    override: str | os.PathLike | None,
+    override: str | os.PathLike[str] | None,
     cfg: Config,
     model_default: Path | None = None,
 ) -> Path:

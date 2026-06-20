@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from .engine.base import GenerationResult, ImageEngine
 from .magic_prompt.base import MagicPromptProvider
 
@@ -22,7 +24,7 @@ class Pipeline:
         width: int,
         height: int,
         target_elements: int = 0,
-    ) -> dict:
+    ) -> dict[str, Any]:
         if self.magic_prompt is None:
             raise RuntimeError("no MagicPromptProvider configured")
         return self.magic_prompt.expand(
@@ -31,7 +33,7 @@ class Pipeline:
 
     def generate(
         self,
-        caption,
+        caption: dict[str, Any] | str,
         *,
         width: int,
         height: int,

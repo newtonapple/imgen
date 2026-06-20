@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import random
 import time
+from typing import Any
 
 from ..caption import model_caption, validate_caption
 from ..config import ModelSpec
@@ -21,7 +22,7 @@ _SEED_MAX = 2**31 - 1
 class MlxEngine:
     backend = "mlx"
 
-    def __init__(self, model: ModelSpec, quantize: int | None = None, **options):
+    def __init__(self, model: ModelSpec, quantize: int | None = None, **options: Any):
         self.model = model
         self.quantize = quantize  # None = native fp8; 4/8 = mflux quantizes on load
         self.options = options
@@ -46,7 +47,7 @@ class MlxEngine:
 
     def generate(
         self,
-        caption: dict | str,
+        caption: dict[str, Any] | str,
         *,
         width: int,
         height: int,

@@ -27,7 +27,17 @@ from ..platform import Backend, default_backend
 )
 @click.argument("model_name")
 @click.argument("model_args", nargs=-1, type=click.UNPROCESSED)
-def gen(prompt, width, height, seed, out, model_path, backend, model_name, model_args):
+def gen(
+    prompt: str | None,
+    width: int,
+    height: int,
+    seed: int | None,
+    out: str,
+    model_path: str | None,
+    backend: str | None,
+    model_name: str,
+    model_args: tuple[str, ...],
+) -> None:
     """ig gen [globals] <model> -- [model opts]"""
     try:
         model = models.get(model_name)

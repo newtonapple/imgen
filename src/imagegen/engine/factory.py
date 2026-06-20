@@ -7,7 +7,7 @@ Mac (MLX) install free of torch/bitsandbytes and vice-versa.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..config import ModelSpec
 from ..platform import Backend, default_backend, is_apple_silicon
@@ -44,7 +44,7 @@ def ensure_supported(backend: Backend) -> None:
 def create_pipeline(
     model: ModelSpec,
     backend: Backend | str | None = None,
-    **options,
+    **options: Any,
 ) -> "ImageEngine":
     """Build and return a ready inference pipeline (an ImageEngine) for `model`.
 

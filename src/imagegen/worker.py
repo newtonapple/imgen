@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import os
 import socket
+from typing import Any
 
 
-def handle_request(pipeline, req: dict) -> dict:
+def handle_request(pipeline: Any, req: dict[str, Any]) -> dict[str, Any]:
     op = req.get("op")
     try:
         if op == "magic_prompt":
@@ -52,7 +53,7 @@ def handle_request(pipeline, req: dict) -> dict:
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
-def serve(socket_path: str, pipeline) -> None:
+def serve(socket_path: str, pipeline: Any) -> None:
     if os.path.exists(socket_path):
         os.unlink(socket_path)
     srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -73,10 +74,11 @@ def serve(socket_path: str, pipeline) -> None:
             os.unlink(socket_path)
 
 
-def send_request(socket_path: str, req: dict) -> dict:
+def send_request(socket_path: str, req: dict[str, Any]) -> dict[str, Any]:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.connect(socket_path)
     s.sendall((json.dumps(req) + "\n").encode())
     line = s.makefile("r").readline()
     s.close()
-    return json.loads(line)
+    resp: dict[str, Any] = json.loads(line)
+    return resp

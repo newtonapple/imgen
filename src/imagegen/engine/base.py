@@ -8,7 +8,7 @@ factory builds the right one for the platform.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from PIL.Image import Image
@@ -21,7 +21,7 @@ class GenerationResult:
     width: int  # resolved/rounded dimensions actually sampled
     height: int
     preset: str
-    caption: dict  # the JSON caption fed to the model
+    caption: dict[str, Any]  # the JSON caption fed to the model
     backend: str  # "mlx" | "torch"
     duration_s: float
 
@@ -34,7 +34,7 @@ class ImageEngine(Protocol):
 
     def generate(
         self,
-        caption: dict | str,
+        caption: dict[str, Any] | str,
         *,
         width: int,
         height: int,
