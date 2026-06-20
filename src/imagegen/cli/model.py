@@ -23,11 +23,14 @@ def model_group() -> None:
 
 @model_group.command("list")
 def list_cmd() -> None:
-    live_by_model = {rec["model"]: rec for rec in daemon.list_daemons() if rec.get("live")}
+    by_model = {rec["model"]: rec for rec in daemon.list_daemons()}
     for m in sorted(models.all_models(), key=lambda x: x.name):
-        rec = live_by_model.get(m.name)
-        if rec is not None:
+        rec = by_model.get(m.name)
+        if rec is not None and rec.get("live"):
             status = f"running (pid {rec['pid']}, {rec.get('state', 'idle')})"
+        elif rec is not None and rec.get("state") == "busy":
+            # dead pid but the record says it was mid-job → it crashed
+            status = f"crashed (log: {rec.get('log', '?')})"
         else:
             status = "-"
         click.echo(

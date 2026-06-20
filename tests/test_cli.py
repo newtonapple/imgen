@@ -428,6 +428,36 @@ def test_model_list_shows_state(monkeypatch: Any) -> None:
     assert "busy" in r.output and "pid 7" in r.output
 
 
+def test_model_list_shows_crashed(monkeypatch: Any) -> None:
+    """A dead pid whose record was 'busy' = crashed mid-job → labeled, with its log."""
+    from imagegen import daemon
+
+    monkeypatch.setattr(
+        daemon,
+        "list_daemons",
+        lambda: [
+            {"model": "ideogram4", "pid": 9, "state": "busy", "live": False, "log": "/tmp/ig.log"}
+        ],
+    )
+    r = run(["model", "list"])
+    assert r.exit_code == 0, r.output
+    assert "crashed" in r.output and "/tmp/ig.log" in r.output
+
+
+def test_model_list_dead_idle_shows_dash(monkeypatch: Any) -> None:
+    """A dead pid that was idle just exited (not a crash) → '-', not 'crashed'."""
+    from imagegen import daemon
+
+    monkeypatch.setattr(
+        daemon,
+        "list_daemons",
+        lambda: [{"model": "ideogram4", "pid": 9, "state": "idle", "live": False}],
+    )
+    r = run(["model", "list"])
+    assert r.exit_code == 0, r.output
+    assert "crashed" not in r.output
+
+
 def test_gen_queue_spawns_and_prints_job(monkeypatch: Any, tmp_path: Any) -> None:
     from imagegen import jobs
 
