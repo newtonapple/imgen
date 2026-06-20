@@ -17,6 +17,10 @@ gen time.
 
 Example: `ig ideogram4 gen -p "a cat" -w 768 -h 768 --seed 42 -o out.png --preset V4_DEFAULT_20`
 
+`gen` routes the request through the **warm daemon** (auto-started if not running).
+Generation progress is streamed to **stderr**; on completion the metadata JSON is
+printed to **stdout** and also written as a sidecar file at `<out>.json`.
+
 | Parameter | Type / default | Meaning |
 |---|---|---|
 | `-p` / `--prompt` | str | Plain-text prompt to expand into a structured JSON caption. Optional if `--caption` is provided. |
@@ -27,6 +31,20 @@ Example: `ig ideogram4 gen -p "a cat" -w 768 -h 768 --seed 42 -o out.png --prese
 | `--preset` | `V4_DEFAULT_20` \| `V4_TURBO_12` \| `V4_QUALITY_48` | Sampler bundle — step count + guidance schedule + noise-schedule. See *Presets* below. |
 | `--target-elements` | int, `0` (=auto) | Force ~N entries in `compositional_deconstruction.elements`. 0 lets the LLM choose. |
 | `--caption` | path | Path to a prebuilt caption JSON file. If provided, `--prompt` is ignored. |
+
+**Output sidecar** (`<out>.json`) and stdout JSON fields:
+
+| Field | Meaning |
+|---|---|
+| `caption` | The full magic-prompt structured JSON caption sent to the model. |
+| `prompt` | The original plain-text prompt (null when `--caption` was used). |
+| `model` | Model name (e.g. `ideogram4`). |
+| `seed` | Actual seed used (useful when you did not specify `--seed`). |
+| `width` / `height` | Actual image dimensions in px. |
+| `preset` | Sampler preset used. |
+| `backend` | Inference backend (`mlx` or `torch`). |
+| `duration_s` | Total generation time in seconds. |
+| `out` | Path to the output image file. |
 
 ### `ig <model> config` — get/set persisted build config
 
@@ -48,28 +66,62 @@ Example: `ig ideogram4 config set magic-provider openrouter`
 | `magic-provider` | `codex` \| `claude` \| `pi` \| `openai` \| `anthropic` \| `openrouter` | Which provider turns text → JSON caption. |
 | `magic-model` | str | Model id for the chosen provider. |
 
-### `ig <model> serve` — warm a worker on a Unix socket
+### `ig <model> serve` — start the warm daemon
 
-Example: `ig ideogram4 serve --socket /tmp/ig.sock`
+Examples:
+```
+ig ideogram4 serve           # foreground (Ctrl-C to stop)
+ig ideogram4 serve --detach  # background (alias: -d)
+```
 
 | Parameter | Type / default | Meaning |
 |---|---|---|
-| `--socket` | path (required) | Unix socket the worker listens on. |
-| `--log` | path | Log file (defaults to stderr). |
+| `--detach` / `-d` | flag, off | Run the daemon in the background (returns immediately). |
 
 Build config (backend, weights path, quantize, magic-prompt provider) is read from
-`ig ideogram4 config` — no per-serve flags needed.
+`ig ideogram4 config` — no per-serve flags needed.  The socket, registry, and log
+are placed under `IG_RUNTIME_DIR` (default `~/.cache/ig`) and are managed
+automatically.
 
-### `ig model` — inspect models
+If a daemon for that model is already running, `serve` exits with an error and
+shows the PID.  Run `ig <model> stop` before starting a new one.
+
+### `ig <model> stop` — stop the daemon
+
+No arguments.  Sends SIGTERM to the daemon and cleans up the registry.  Prints a
+message whether or not a daemon was running.
+
+### `ig model` — inspect models and manage daemons
 
 | Subcommand | Arguments | Meaning |
 |---|---|---|
-| `ig model list` | — | List all available models. |
+| `ig model list` | — | List all available models with their daemon status (PID if running). |
 | `ig model show` | `<model>` | Show options, defaults, and config keys for a specific model. |
+| `ig model stop-all` | — | Stop every running daemon. |
 
 ### `ig platform` — detect platform and default backend
 
 No arguments. Prints the detected platform (Apple Silicon / Linux) and default backend (MLX / PyTorch).
+
+## Daemon runtime
+
+`gen`, `serve`, and `stop` all use a shared **runtime directory** (default
+`~/.cache/ig`, override with `IG_RUNTIME_DIR`) that holds:
+
+| Path | Purpose |
+|---|---|
+| `$IG_RUNTIME_DIR/daemons/<model>.sock` | Unix domain socket the daemon listens on. |
+| `$IG_RUNTIME_DIR/daemons/<model>.json` | Live registry record (PID, socket path, backend, state). |
+| `$IG_RUNTIME_DIR/logs/<model>.log` | Stdout/stderr of the detached daemon process. |
+
+There is **one daemon per model** (one GPU → one job at a time); concurrent `gen`
+calls queue automatically.  If the socket path would exceed the platform limit
+(104 bytes on macOS, 108 on Linux) `ig` exits with an error — set `IG_RUNTIME_DIR`
+to a shorter path in that case.
+
+> **Coming in Phase 2b** (not yet available): `ig <model> gen --queue` (async
+> fire-and-forget), `ig model jobs` (list pending/running jobs), `ig model clean`
+> (purge stale job data).
 
 ## Generation parameters (what the presets/engine set)
 
