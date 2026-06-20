@@ -49,3 +49,19 @@ def test_config_dir_honors_env(monkeypatch, tmp_path):
     assert cfg_mod.CONFIG_PATH == tmp_path / "cfgdir" / "config.toml"
     monkeypatch.delenv("IG_CONFIG_DIR")
     importlib.reload(cfg_mod)
+
+
+def test_magic_prompt_section_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.setenv("IG_CONFIG_DIR", str(tmp_path))
+    import importlib
+    import imagegen.config as c
+
+    importlib.reload(c)
+    cfg = c.Config.load()
+    cfg.set_magic_prompt_provider("openrouter")
+    cfg.set_magic_prompt_model("openrouter/free")
+    cfg.save()
+    reloaded = c.Config.load()
+    assert reloaded.magic_prompt_provider() == "openrouter"
+    assert reloaded.magic_prompt_model() == "openrouter/free"
+    importlib.reload(c)

@@ -66,6 +66,10 @@ def _config_path() -> Path:
     return _config_dir() / "config.toml"
 
 
+def _secrets_path() -> Path:
+    return _config_dir() / "secrets.toml"
+
+
 # Module-level constants computed at import time (kept for backward compat).
 # Prefer calling _config_path() directly when a live env-var value is needed.
 CONFIG_DIR = _config_dir()
@@ -95,6 +99,20 @@ class Config:
         models = self.data.setdefault("models", {})
         models.setdefault(model, {})["path"] = str(Path(path).expanduser())
 
+    def magic_prompt_provider(self) -> str | None:
+        v = self.data.get("magic_prompt", {}).get("provider")
+        return str(v) if v else None
+
+    def magic_prompt_model(self) -> str | None:
+        v = self.data.get("magic_prompt", {}).get("model")
+        return str(v) if v else None
+
+    def set_magic_prompt_provider(self, provider: str) -> None:
+        self.data.setdefault("magic_prompt", {})["provider"] = provider
+
+    def set_magic_prompt_model(self, model: str) -> None:
+        self.data.setdefault("magic_prompt", {})["model"] = model
+
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(_dump_toml(self.data))
@@ -104,6 +122,50 @@ def _dump_toml(data: dict[str, Any]) -> str:
     lines: list[str] = []
     for model, conf in data.get("models", {}).items():
         lines.append(f"[models.{model}]")
+        for key, value in conf.items():
+            lines.append(f'{key} = "{value}"')
+        lines.append("")
+    mp = data.get("magic_prompt")
+    if mp:
+        lines.append("[magic_prompt]")
+        for key, value in mp.items():
+            lines.append(f'{key} = "{value}"')
+        lines.append("")
+    return "\n".join(lines)
+
+
+class Secrets:
+    """Reads/writes ~/.config/ig/secrets.toml (per-provider API keys, mode 600)."""
+
+    def __init__(self, data: dict[str, Any] | None = None, path: Path | None = None):
+        self.data = data or {}
+        self.path = Path(path) if path is not None else _secrets_path()
+
+    @classmethod
+    def load(cls, path: Path | None = None) -> "Secrets":
+        path = Path(path) if path is not None else _secrets_path()
+        if path.exists():
+            with open(path, "rb") as f:
+                return cls(tomllib.load(f), path)
+        return cls({}, path)
+
+    def api_key(self, provider: str) -> str | None:
+        v = self.data.get(provider, {}).get("api_key")
+        return str(v) if v else None
+
+    def set_api_key(self, provider: str, key: str) -> None:
+        self.data.setdefault(provider, {})["api_key"] = key
+
+    def save(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(_dump_secrets(self.data))
+        self.path.chmod(0o600)
+
+
+def _dump_secrets(data: dict[str, Any]) -> str:
+    lines: list[str] = []
+    for section, conf in data.items():
+        lines.append(f"[{section}]")
         for key, value in conf.items():
             lines.append(f'{key} = "{value}"')
         lines.append("")

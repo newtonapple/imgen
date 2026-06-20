@@ -31,5 +31,8 @@ docs/design/
 docs/notes/
 docs/plans/
 
+# Local secrets — API keys, never committed
+secrets.toml
+
 # OS / editor
 .DS_Store
