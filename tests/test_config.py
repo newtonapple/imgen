@@ -37,7 +37,7 @@ def test_resolve_uses_config_then_env(tmp_path, monkeypatch):
 
 def test_resolve_errors_when_nothing_set(tmp_path, monkeypatch):
     monkeypatch.delenv("IMAGEGEN_WEIGHTS_ROOT", raising=False)
-    with pytest.raises(RuntimeError, match="ig model set-path"):
+    with pytest.raises(RuntimeError, match="config set weights-path"):
         resolve_weights_path("ideogram4", override=None, cfg=_cfg(tmp_path))
 
 

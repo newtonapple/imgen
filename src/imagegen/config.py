@@ -213,5 +213,5 @@ def resolve_weights_path(
         return model_default
     raise RuntimeError(
         f"No weights path for '{model_name}'. Set one with: "
-        f"ig model set-path {model_name} <path>  (or pass --model-path, or set {WEIGHTS_ROOT_ENV})."
+        f"ig {model_name} config set weights-path <path>  (or set {WEIGHTS_ROOT_ENV})."
     )
