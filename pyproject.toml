@@ -1,7 +1,7 @@
 [project]
 name = "imgen"
 version = "0.1.0"
-description = "imgen: an Ideogram-4 image-generation pipeline (plain prompt -> magic-prompt -> structured JSON caption -> image) with pluggable inference backends -- MLX on Apple Silicon, PyTorch/CUDA on the DGX Spark."
+description = "imgen: a pluggable image-generation pipeline (plain prompt -> magic-prompt -> structured caption -> image) with a model registry and per-platform inference backends -- MLX on Apple Silicon, PyTorch/CUDA on the DGX Spark. Ideogram 4 is the first supported model."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

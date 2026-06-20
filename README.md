@@ -1,7 +1,9 @@
 # imgen
 
-Pure-Python pipeline for **Ideogram 4** image generation:
-plain prompt → magic-prompt → structured JSON caption → image, with edit/regenerate.
+A pluggable, pure-Python **image-generation** pipeline: plain prompt → magic-prompt
+→ structured caption → image, with edit/regenerate. Models plug into a registry
+behind a common interface and run on a per-platform inference backend — **Ideogram 4**
+is the first supported model.
 
 Built to replace a ComfyUI workflow with our own code. Pluggable inference
 backends, selected per platform:
