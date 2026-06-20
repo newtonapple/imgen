@@ -65,24 +65,21 @@ ig --help
 
 ```bash
 # one-time: tell ig where the weights are
-ig model set-path ideogram4 /Volumes/PRO-G40/data/models/image-gen/ideogram-4-fp8
+ig ideogram4 config set weights-path /Volumes/PRO-G40/data/models/image-gen/ideogram-4-fp8
 
-# end-to-end (model is a subcommand — options follow the model name, no `--`)
-ig gen -p "a ginger cat wizard" --width 768 --height 768 --seed 42 --out out.png \
-   ideogram4 --preset V4_DEFAULT_20
-
-# int8 on load
-ig gen -p "..." --out out.png ideogram4 --quantize 8
+# end-to-end (model-first: ig <model> <action>)
+ig ideogram4 gen -p "a ginger cat wizard" -w 768 -h 768 --seed 42 -o out.png \
+   --preset V4_DEFAULT_20
 
 # from a prebuilt caption
-ig gen --out out.png ideogram4 --caption caption.json
+ig ideogram4 gen -o out.png --caption caption.json
 
 # list / inspect models
 ig model list
 ig model show ideogram4
 
 # warm worker
-ig serve --socket /tmp/ig.sock ideogram4 --preset V4_DEFAULT_20
+ig ideogram4 serve --socket /tmp/ig.sock
 
 ig platform
 ```
@@ -91,38 +88,41 @@ ig platform
 
 There is **one model directory** — the official `ideogram-ai/ideogram-4-fp8` checkpoint
 (it serves both the Mac via mflux and the Spark via the PyTorch pipeline). Precision
-variants come from quantizing it **on load** with `--quantize`:
+variants come from quantizing it **on load**, configured via `ig ideogram4 config set quantize`:
 
 - *(default)* — native fp8
-- `--quantize 8` — int8 (equivalent to the MLXBits "q8" build)
-- `--quantize 4` — 4-bit (smallest/fastest)
+- `quantize 8` — int8 (equivalent to the MLXBits "q8" build)
+- `quantize 4` — 4-bit (smallest/fastest)
+
+```bash
+ig ideogram4 config set quantize 8
+```
 
 > The pre-converted `MLXBits/ideogram-4-mlx*` builds are **not** loadable by released
-> mflux (their flat-layout loader lives only in an unmerged PR) — use fp8 + `--quantize`.
+> mflux (their flat-layout loader lives only in an unmerged PR) — use fp8 + `quantize`.
 
 ### Magic-prompt provider & model
 
-Pick the provider and model with two ideogram4 options (after the model name):
-
-- `--magic-prompt-provider` / `--mp` — `codex | claude | pi | anthropic | openai | openrouter`
-- `--magic-model` / `--mm` — the model id for that provider
+Build config (magic-prompt provider, model, backend, weights path) is set once via
+`ig ideogram4 config set` — not as per-gen flags.
 
 ```bash
-# free OpenRouter pool (rotating), one-time key store + persist as default
-ig gen -p "a cat" -w 768 -h 768 -o out.png ideogram4 \
-   --mp openrouter --mm openrouter/free --set-mk sk-or-... --set-mp openrouter --set-mm openrouter/free
+# free OpenRouter pool (rotating) — store key + persist as default
+ig ideogram4 config set-key openrouter sk-or-...
+ig ideogram4 config set magic-provider openrouter
+ig ideogram4 config set magic-model openrouter/free
 
-# thereafter the default is openrouter/free — no flags needed
-ig gen -p "a cat" -w 768 -h 768 -o out.png ideogram4
+# thereafter the default is openrouter/free — no flags needed at gen time
+ig ideogram4 gen -p "a cat" -w 768 -h 768 -o out.png
 ```
 
 - **CLI providers** (`codex`, `claude`, `pi`) shell out to a local CLI and need **no API key**.
-- **HTTP providers** (`openai`, `anthropic`, `openrouter`) need a key from `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY`, or stored once with `--set-magic-prompt-api-key` / `--set-mk` into `~/.config/ig/secrets.toml` (mode 600, never committed).
-- Persist defaults with `--set-magic-prompt-provider` / `--set-mp` and `--set-magic-model` / `--set-mm`.
-- `openrouter` accepts a comma-separated `--mm` (e.g. `a/x,b/y`) → an OpenRouter `models[]` fallback chain. `pi` takes `--mm "<pi-provider>/<model>"`.
-- With nothing configured the default is `codex` + `gpt-5.5` (unchanged).
+- **HTTP providers** (`openai`, `anthropic`, `openrouter`) need a key stored with
+  `ig ideogram4 config set-key <provider> <key>` (written to `~/.config/ig/secrets.toml`, mode 600, never committed).
+- `openrouter` `magic-model` accepts a comma-separated list (e.g. `a/x,b/y`) → an OpenRouter `models[]` fallback chain. `pi` takes `"<pi-provider>/<model>"`.
+- With nothing configured the default is `codex` + `gpt-5.5`.
 
-Run `ig model show ideogram4` to see all available options and their defaults.
+Run `ig model show ideogram4` to see all available config keys and gen options.
 
 Full parameter reference (every CLI flag, presets, and the model components —
 Qwen3-VL text encoder, Flux2 VAE, transformers): **[docs/parameters.md](docs/parameters.md)**.

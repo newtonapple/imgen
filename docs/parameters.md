@@ -5,58 +5,67 @@ How to read this: the **CLI parameters** are what you set; they map onto the
 section explains the pieces (transformer, text encoder, VAE) you may have seen as
 separate nodes in ComfyUI.
 
-## CLI parameters
+The CLI uses a **model-first grammar**: `ig <model> <action> [options]`.
+Build config (weights path, backend, quantize, magic-prompt provider/model) is set
+once with `ig <model> config set` and persisted to `~/.config/ig/config.toml`.
+Per-request options (prompt, width, height, seed, preset, caption) are passed at
+gen time.
 
-Commands: `ig gen`, `ig serve`, `ig model`, `ig platform`.
+## CLI commands
 
-### `ig gen` — generate an image
+### `ig <model> gen` — generate an image
+
+Example: `ig ideogram4 gen -p "a cat" -w 768 -h 768 --seed 42 -o out.png --preset V4_DEFAULT_20`
 
 | Parameter | Type / default | Meaning |
 |---|---|---|
 | `-p` / `--prompt` | str | Plain-text prompt to expand into a structured JSON caption. Optional if `--caption` is provided. |
-| `--width` | int, `1024` | Output width in px. Rounded to a multiple of 16, floored at 256 (range 256–2048). |
-| `--height` | int, `1024` | Output height in px. Rounded to a multiple of 16, floored at 256 (range 256–2048). |
+| `-w` / `--width` | int, `1024` | Output width in px. Rounded to a multiple of 16, floored at 256 (range 256–2048). |
+| `-h` / `--height` | int, `1024` | Output height in px. Rounded to a multiple of 16, floored at 256 (range 256–2048). |
 | `--seed` | int, *random* | RNG seed. Same seed + caption + params ⇒ reproducible. Omit ⇒ random. |
-| `--out` | path | Output image file. |
-| `--model-path` | path | Path to the model weights dir (the `ideogram-4-fp8` checkpoint). Falls back to `IMAGEGEN_WEIGHTS_ROOT`. |
-| `--backend` | `mlx` \| `torch`, *auto* | Inference backend. Auto-detected from the platform. |
-| `MODEL` (positional) | str | Model to use (e.g., `ideogram4`). |
-
-### `ig gen` — ideogram4 model options (after `--`)
-
-| Option | Type / default | Meaning |
-|---|---|---|
+| `-o` / `--out` | path (required) | Output image file. |
 | `--preset` | `V4_DEFAULT_20` \| `V4_TURBO_12` \| `V4_QUALITY_48` | Sampler bundle — step count + guidance schedule + noise-schedule. See *Presets* below. |
-| `--quantize` | `4` \| `8`, *none* | Quantize the fp8 weights to N bits on load. `8` = int8 (faster); `4` = 4-bit (fastest, ~½ transformer memory); default keeps fp8. |
-| `--magic-prompt-provider` / `--mp` | str, `"codex"` | Which provider turns text → JSON caption. One of `codex`, `claude`, `pi` (CLI, no key) or `openai`, `anthropic`, `openrouter` (HTTP, key required). |
-| `--magic-model` / `--mm` | str, `"gpt-5.5"` | Model id for the chosen provider. `openrouter` accepts comma-separated models for a fallback chain (e.g. `a/x,b/y`). `pi` takes `"<pi-provider>/<model>"`. |
-| `--set-magic-prompt-provider` / `--set-mp` | str | Persist a new default provider to `~/.config/ig/config.toml`. |
-| `--set-magic-model` / `--set-mm` | str | Persist a new default model to `~/.config/ig/config.toml`. |
-| `--set-magic-prompt-api-key` / `--set-mk` | str | Store an API key for an HTTP provider in `~/.config/ig/secrets.toml` (mode 600, never committed). |
 | `--target-elements` | int, `0` (=auto) | Force ~N entries in `compositional_deconstruction.elements`. 0 lets the LLM choose. |
 | `--caption` | path | Path to a prebuilt caption JSON file. If provided, `--prompt` is ignored. |
 
-### `ig serve` — warm a worker on a Unix socket
+### `ig <model> config` — get/set persisted build config
+
+Example: `ig ideogram4 config set magic-provider openrouter`
+
+| Subcommand | Arguments | Meaning |
+|---|---|---|
+| `ig <model> config set` | `<key> <value>` | Set a build config value (persists to `~/.config/ig/config.toml`). |
+| `ig <model> config set-key` | `<provider> <api-key>` | Store an API key in `~/.config/ig/secrets.toml` (mode 600, never committed). |
+| `ig <model> config show` | — | Print the current config for this model. |
+
+**Config keys for `ideogram4`:**
+
+| Key | Values | Meaning |
+|---|---|---|
+| `weights-path` | path | Path to the model weights directory (the `ideogram-4-fp8` checkpoint). |
+| `backend` | `mlx` \| `torch` | Inference backend. Auto-detected from the platform if not set. |
+| `quantize` | `4` \| `8` \| *(empty to clear)* | Quantize the fp8 weights to N bits on load. `8` = int8; `4` = 4-bit; default keeps fp8. |
+| `magic-provider` | `codex` \| `claude` \| `pi` \| `openai` \| `anthropic` \| `openrouter` | Which provider turns text → JSON caption. |
+| `magic-model` | str | Model id for the chosen provider. |
+
+### `ig <model> serve` — warm a worker on a Unix socket
+
+Example: `ig ideogram4 serve --socket /tmp/ig.sock`
 
 | Parameter | Type / default | Meaning |
 |---|---|---|
 | `--socket` | path (required) | Unix socket the worker listens on. |
-| `--log` | `debug` \| `info` \| `warning` \| `error`, *info* | Log level. |
-| `--model-path` | path | Path to the model weights dir. Falls back to `IMAGEGEN_WEIGHTS_ROOT`. |
-| `--backend` | `mlx` \| `torch`, *auto* | Inference backend. Auto-detected from the platform. |
-| `MODEL` (positional) | str | Model to use (e.g., `ideogram4`). |
+| `--log` | path | Log file (defaults to stderr). |
 
-### `ig serve` — ideogram4 model options (after `--`)
+Build config (backend, weights path, quantize, magic-prompt provider) is read from
+`ig ideogram4 config` — no per-serve flags needed.
 
-Same as `ig gen` (see above): `--preset`, `--quantize`, `--mp`/`--magic-prompt-provider`, `--mm`/`--magic-model`, `--set-mp`, `--set-mm`, `--set-mk`, `--target-elements`, `--caption`.
-
-### `ig model` — inspect and configure models
+### `ig model` — inspect models
 
 | Subcommand | Arguments | Meaning |
 |---|---|---|
 | `ig model list` | — | List all available models. |
-| `ig model show` | `<model>` | Show options, defaults, and path for a specific model (e.g., `ideogram4`). |
-| `ig model set-path` | `<model> <path>` | Register the path to a model's weights directory. Persists to config. |
+| `ig model show` | `<model>` | Show options, defaults, and config keys for a specific model. |
 
 ### `ig platform` — detect platform and default backend
 
@@ -76,7 +85,7 @@ A **preset** bundles the sampler settings so you don't tune them individually:
 - **guidance (CFG)** — per-step prompt-adherence strength; high for most steps, a few low-guidance "polish" steps at the end.
 - **`mu` / `std`** — shape of the flow-matching noise schedule (where denoising effort is concentrated).
 
-The image **dimensions** (`--width`/`--height`) are passed to the model directly — they are *not* part of the caption (the caption's `aspect_ratio` field, if present, is dropped before generation).
+The image **dimensions** (`-w`/`-h`) are passed to the model directly — they are *not* part of the caption (the caption's `aspect_ratio` field, if present, is dropped before generation).
 
 ## Magic-prompt (text → JSON caption)
 
@@ -90,20 +99,22 @@ The image **dimensions** (`--width`/`--height`) are passed to the model directly
 
 ### Providers
 
-Two flags select the provider and model: `--mp`/`--magic-prompt-provider` and `--mm`/`--magic-model`.
+Two config keys select the provider and model: `magic-provider` and `magic-model`.
 
 | Family | Providers | Key required? | Key source |
 |---|---|---|---|
 | CLI (shell out) | `codex`, `claude`, `pi` | No | — |
-| HTTP | `openai`, `anthropic`, `openrouter` | Yes | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` env var, or `~/.config/ig/secrets.toml` (stored once with `--set-mk`) |
+| HTTP | `openai`, `anthropic`, `openrouter` | Yes | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` env var, or stored with `ig ideogram4 config set-key <provider> <key>` |
 
 The default provider/model is `codex` + `gpt-5.5` when nothing is configured.
 
-Use `--set-mp` / `--set-mm` to persist a new default; use `--set-mk` to store an HTTP API key in `~/.config/ig/secrets.toml` (mode 600, never committed to version control).
+Use `ig ideogram4 config set magic-provider <p>` and `ig ideogram4 config set magic-model <m>`
+to persist a new default. Use `ig ideogram4 config set-key <provider> <key>` to store an
+HTTP API key in `~/.config/ig/secrets.toml` (mode 600, never committed to version control).
 
-**`openrouter`** accepts a comma-separated model list for `--mm` (e.g. `openrouter/free,openai/gpt-4o`) — this becomes an OpenRouter `models[]` fallback chain.
+**`openrouter`** accepts a comma-separated model list for `magic-model` (e.g. `openrouter/free,openai/gpt-4o`) — this becomes an OpenRouter `models[]` fallback chain.
 
-**`pi`** takes `--mm "<pi-provider>/<model>"` (reads `~/.pi/agent/models.json`; override with `PI_MODELS_JSON` env var).
+**`pi`** takes `magic-model "<pi-provider>/<model>"` (reads `~/.pi/agent/models.json`; override with `PI_MODELS_JSON` env var).
 
 ## Model components (the pieces, incl. "Qwen" and "VAE")
 

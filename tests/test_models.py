@@ -10,16 +10,14 @@ class FakeModel:
     aliases = ["fk"]
     description = "a fake model"
     supported_backends = [Backend.MLX]
-    model_options = click.Command("fake", params=[])
+    gen_options: list[click.Parameter] = []
+    config_keys: dict[str, str] = {}
 
-    def default_weights_path(self, cfg):
-        return None
+    def build_pipeline(self, *, weights_path, backend, config, secrets):
+        return ("pipeline", weights_path, backend)
 
-    def build_pipeline(self, *, weights_path, backend, **opts):
-        return ("pipeline", weights_path, backend, opts)
-
-    def run_one(self, pipeline, *, prompt, width, height, seed, **opts):
-        return ("result", prompt, opts)
+    def run_one(self, pipeline, **gen_opts):
+        return ("result", gen_opts)
 
 
 @pytest.fixture(autouse=True)
