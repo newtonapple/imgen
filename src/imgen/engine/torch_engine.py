@@ -1,8 +1,8 @@
-"""PyTorch backend (CUDA, the DGX Spark) via the official `ideogram4` package.
+"""PyTorch backend (CUDA) via the official `ideogram4` package.
 
 Loads the reference `Ideogram4Pipeline` once and generates one image per call.
 
-Implementation pending Spark bring-up: build the pipeline from the official
+Implementation pending: build the pipeline from the official
 fp8 weights (ideogram-ai/ideogram-4-fp8 layout) and map our (caption, size,
 preset, seed) call onto `pipe(...)` using `ideogram4.PRESETS`.
 """
@@ -35,7 +35,7 @@ class TorchEngine:
         seed: int | None = None,
     ) -> GenerationResult:
         raise NotImplementedError(
-            "TorchEngine.generate is pending Spark bring-up: call the reference "
+            "TorchEngine.generate is pending: call the reference "
             "Ideogram4Pipeline with ideogram4.PRESETS[preset], feeding the JSON "
             "caption as the prompt."
         )

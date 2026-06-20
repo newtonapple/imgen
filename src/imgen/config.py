@@ -1,7 +1,7 @@
 """Configuration: model specs + engine config.
 
-Weights live OUTSIDE the repo (an external volume on the Mac, ~/ai/image-gen on
-the Spark) and are referenced by path only — never committed, never in iCloud.
+Weights live OUTSIDE the repo (e.g. an external volume, or ~/ai/image-gen) and
+are referenced by path only — never committed.
 The weights root is supplied via the IMGEN_WEIGHTS_ROOT env var or an explicit
 path, so nothing is hardcoded.
 """

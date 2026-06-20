@@ -1,9 +1,10 @@
 # Working in this repo (agents)
 
-How we develop here. Read the **README first** — especially *Architecture*,
-*Project layout*, and *Parameter & model reference*. This file is *how we work*;
-the README is *what it is*. Keep this file short; link to README sections rather
-than restating them.
+How we develop here. Read the **README first** — especially *Architecture*, *Project layout*, and
+*Docs* — then the model-agnostic CLI reference in `docs/cli.md` and per-model
+references under `docs/models/`. This file is *how we work*; the README and
+`docs/` are *what it is*. Keep this file short; link to those rather than
+restating them.
 
 ## Branches & commits
 - **Never auto-commit on `main`.** Only commit when you are on a branch off `main`;
@@ -25,8 +26,10 @@ than restating them.
 - **Pythonic & succinct.** Idiomatic, fully type-annotated (mypy strict), small
   focused modules. Match surrounding style and naming. Prefer clear over clever.
 - **Docs current.** In the *same* change that alters behavior, flags, or structure,
-  update the README (and its *Project layout*). Docs must reflect the repo's actual
-  state — no stale or aspirational claims.
+  update the README (and its *Project layout*) and the relevant `docs/` page
+  (`docs/cli.md` for shared CLI, `docs/models/<model>.md` for model-specific
+  detail). Docs must reflect the repo's actual state — no stale or aspirational
+  claims.
 
 ## Patterns (don't reinvent)
 - Follow existing patterns; do **not** copy-paste, fork, or invent a parallel way to

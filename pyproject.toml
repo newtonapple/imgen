@@ -1,7 +1,7 @@
 [project]
 name = "imgen"
 version = "0.1.0"
-description = "imgen: a pluggable image-generation pipeline with a model registry and per-platform inference backends -- MLX on Apple Silicon, PyTorch/CUDA on the DGX Spark. Ideogram 4 is the first supported model."
+description = "imgen: a pluggable image-generation pipeline with a model registry and per-platform inference backends -- MLX on Apple Silicon, PyTorch/CUDA on Linux. Ideogram 4 is the first supported model."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -15,7 +15,7 @@ dependencies = [
 mlx = [
   "mflux>=0.18.0",
 ]
-# CUDA (DGX Spark prod): PyTorch reference pipeline + official ideogram4 package.
+# CUDA: PyTorch reference pipeline + official ideogram4 package.
 cuda = [
   "torch>=2.11",
   "transformers>=4.49.0",

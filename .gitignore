@@ -24,9 +24,14 @@ runs/
 *.jpg
 *.jpeg
 
-# Docs — kept on disk, not tracked. The README is the only committed doc;
-# everything under docs/ (design notes, specs, plans, parameters) stays local.
-docs/
+# Docs — model & CLI reference docs under docs/ are tracked. Local planning
+# notes (design, plans, specs, handoffs, notes) stay on disk only.
+docs/design/
+docs/plans/
+docs/handoff/
+docs/notes/
+docs/superpowers/
+docs/parameters.md
 
 # Local secrets — API keys, never committed
 secrets.toml

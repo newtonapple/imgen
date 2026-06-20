@@ -1,6 +1,6 @@
 """Platform detection: pick the inference backend + dependency set for this host.
 
-Apple Silicon -> MLX (mflux). Linux/CUDA (the DGX Spark) -> PyTorch reference
+Apple Silicon -> MLX (mflux). Linux/CUDA -> PyTorch reference
 pipeline. Kept dependency-free so it can run before any heavy deps are installed.
 """
 
