@@ -343,6 +343,82 @@ def test_model_show_unknown_model_clean_error() -> None:
     assert r.exception is None or isinstance(r.exception, SystemExit)
 
 
+def test_model_jobs_list(monkeypatch: Any) -> None:
+    from imagegen import jobs
+
+    monkeypatch.setattr(
+        jobs,
+        "list_jobs",
+        lambda: [
+            {
+                "id": "bbbbbb",
+                "model": "ideogram4",
+                "out": "/b.png",
+                "status": "done",
+                "started_at": 2.0,
+            },
+            {
+                "id": "aaaaaa",
+                "model": "ideogram4",
+                "out": "/a.png",
+                "status": "queued",
+                "started_at": 1.0,
+            },
+        ],
+    )
+    r = run(["model", "jobs"])
+    assert r.exit_code == 0, r.output
+    assert (
+        "bbbbbb" in r.output
+        and "aaaaaa" in r.output
+        and "done" in r.output
+        and "queued" in r.output
+    )
+
+
+def test_model_jobs_show_one(monkeypatch: Any) -> None:
+    from imagegen import jobs
+
+    monkeypatch.setattr(
+        jobs,
+        "read_job",
+        lambda jid: {
+            "id": jid,
+            "model": "ideogram4",
+            "out": "/o.png",
+            "status": "running",
+            "started_at": 1.0,
+            "finished_at": None,
+            "log": "/tmp/x.log",
+        },
+    )
+    r = run(["model", "jobs", "ab12cd"])
+    assert r.exit_code == 0, r.output
+    assert "ab12cd" in r.output and "running" in r.output and "/tmp/x.log" in r.output
+
+
+def test_model_jobs_show_unknown(monkeypatch: Any) -> None:
+    from imagegen import jobs
+
+    monkeypatch.setattr(jobs, "read_job", lambda jid: None)
+    r = run(["model", "jobs", "nope12"])
+    assert r.exit_code != 0
+    assert "no such job" in r.output.lower()
+
+
+def test_model_list_shows_state(monkeypatch: Any) -> None:
+    from imagegen import daemon
+
+    monkeypatch.setattr(
+        daemon,
+        "list_daemons",
+        lambda: [{"model": "ideogram4", "pid": 7, "state": "busy", "live": True}],
+    )
+    r = run(["model", "list"])
+    assert r.exit_code == 0, r.output
+    assert "busy" in r.output and "pid 7" in r.output
+
+
 def test_gen_queue_spawns_and_prints_job(monkeypatch: Any, tmp_path: Any) -> None:
     from imagegen import jobs
 

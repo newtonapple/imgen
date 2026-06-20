@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+import datetime as _dt
+
 import click
 
 from .. import daemon, models
 from ..config import Config
+
+
+def _fmt_ts(ts: float | None) -> str:
+    if not ts:
+        return "-"
+    return _dt.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
 
 
 @click.group("model")
@@ -18,7 +26,10 @@ def list_cmd() -> None:
     live_by_model = {rec["model"]: rec for rec in daemon.list_daemons() if rec.get("live")}
     for m in sorted(models.all_models(), key=lambda x: x.name):
         rec = live_by_model.get(m.name)
-        status = f"running (pid {rec['pid']})" if rec is not None else "-"
+        if rec is not None:
+            status = f"running (pid {rec['pid']}, {rec.get('state', 'idle')})"
+        else:
+            status = "-"
         click.echo(
             f"{m.name}  (aliases: {', '.join(m.aliases) or '-'})  "
             f"[daemon: {status}]  {m.description}"
@@ -58,3 +69,27 @@ def show_cmd(name: str) -> None:
 
 
 model_group.add_command(show_cmd, name="get")
+
+
+@model_group.command("jobs")
+@click.argument("job_id", required=False)
+def jobs_cmd(job_id: str | None) -> None:
+    """List background (--queue) jobs, or show one with JOB_ID."""
+    from .. import jobs as jobs_mod
+
+    if job_id is None:
+        rows = jobs_mod.list_jobs()
+        if not rows:
+            click.echo("no jobs")
+            return
+        for r in rows:
+            started = _fmt_ts(r.get("started_at"))
+            click.echo(f"{r['id']}  {r['model']:<12}  {r['status']:<8}  {started}  {r['out']}")
+        return
+    rec = jobs_mod.read_job(job_id)
+    if rec is None:
+        raise click.ClickException(f"no such job: {job_id}")
+    for key in ("id", "model", "out", "status", "started_at", "finished_at", "log", "error"):
+        if key in rec and rec[key] is not None:
+            val = _fmt_ts(rec[key]) if key.endswith("_at") else rec[key]
+            click.echo(f"{key}: {val}")
