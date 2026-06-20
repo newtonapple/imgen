@@ -28,7 +28,11 @@ Commands: `ig gen`, `ig serve`, `ig model`, `ig platform`.
 |---|---|---|
 | `--preset` | `V4_DEFAULT_20` \| `V4_TURBO_12` \| `V4_QUALITY_48` | Sampler bundle — step count + guidance schedule + noise-schedule. See *Presets* below. |
 | `--quantize` | `4` \| `8`, *none* | Quantize the fp8 weights to N bits on load. `8` = int8 (faster); `4` = 4-bit (fastest, ~½ transformer memory); default keeps fp8. |
-| `--magic-model` | str, `"codex - gpt-5.5"` | Which LLM turns text → JSON caption (`codex - <model>` or `pi - <provider> - <model>`). |
+| `--magic-prompt-provider` / `--mp` | str, `"codex"` | Which provider turns text → JSON caption. One of `codex`, `claude`, `pi` (CLI, no key) or `openai`, `anthropic`, `openrouter` (HTTP, key required). |
+| `--magic-model` / `--mm` | str, `"gpt-5.5"` | Model id for the chosen provider. `openrouter` accepts comma-separated models for a fallback chain (e.g. `a/x,b/y`). `pi` takes `"<pi-provider>/<model>"`. |
+| `--set-magic-prompt-provider` / `--set-mp` | str | Persist a new default provider to `~/.config/ig/config.toml`. |
+| `--set-magic-model` / `--set-mm` | str | Persist a new default model to `~/.config/ig/config.toml`. |
+| `--set-magic-prompt-api-key` / `--set-mk` | str | Store an API key for an HTTP provider in `~/.config/ig/secrets.toml` (mode 600, never committed). |
 | `--target-elements` | int, `0` (=auto) | Force ~N entries in `compositional_deconstruction.elements`. 0 lets the LLM choose. |
 | `--caption` | path | Path to a prebuilt caption JSON file. If provided, `--prompt` is ignored. |
 
@@ -44,7 +48,7 @@ Commands: `ig gen`, `ig serve`, `ig model`, `ig platform`.
 
 ### `ig serve` — ideogram4 model options (after `--`)
 
-Same as `ig gen` (see above): `--preset`, `--quantize`, `--magic-model`, `--target-elements`, `--caption`.
+Same as `ig gen` (see above): `--preset`, `--quantize`, `--mp`/`--magic-prompt-provider`, `--mm`/`--magic-model`, `--set-mp`, `--set-mm`, `--set-mk`, `--target-elements`, `--caption`.
 
 ### `ig model` — inspect and configure models
 
@@ -84,7 +88,22 @@ The image **dimensions** (`--width`/`--height`) are passed to the model directly
 - `compositional_deconstruction` — `background` + `elements[]` (each with `type`, `bbox`,
   `desc`, optional palette). `--target-elements` influences how many elements.
 
-Provider is chosen by `--magic-model` (codex CLI or pi CLI today; OpenRouter/local vLLM are future backends).
+### Providers
+
+Two flags select the provider and model: `--mp`/`--magic-prompt-provider` and `--mm`/`--magic-model`.
+
+| Family | Providers | Key required? | Key source |
+|---|---|---|---|
+| CLI (shell out) | `codex`, `claude`, `pi` | No | — |
+| HTTP | `openai`, `anthropic`, `openrouter` | Yes | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` env var, or `~/.config/ig/secrets.toml` (stored once with `--set-mk`) |
+
+The default provider/model is `codex` + `gpt-5.5` when nothing is configured.
+
+Use `--set-mp` / `--set-mm` to persist a new default; use `--set-mk` to store an HTTP API key in `~/.config/ig/secrets.toml` (mode 600, never committed to version control).
+
+**`openrouter`** accepts a comma-separated model list for `--mm` (e.g. `openrouter/free,openai/gpt-4o`) — this becomes an OpenRouter `models[]` fallback chain.
+
+**`pi`** takes `--mm "<pi-provider>/<model>"` (reads `~/.pi/agent/models.json`; override with `PI_MODELS_JSON` env var).
 
 ## Model components (the pieces, incl. "Qwen" and "VAE")
 

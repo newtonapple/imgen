@@ -100,13 +100,27 @@ variants come from quantizing it **on load** with `--quantize`:
 > The pre-converted `MLXBits/ideogram-4-mlx*` builds are **not** loadable by released
 > mflux (their flat-layout loader lives only in an unmerged PR) — use fp8 + `--quantize`.
 
-### Selecting a magic-prompt provider/model
+### Magic-prompt provider & model
 
-`--magic-model` is now an ideogram4 option (after `--`). Pass one to `-- --magic-model`:
+Pick the provider and model with two ideogram4 options (after the model name):
 
-- `codex - gpt-5.5` / `codex - gpt-5.4` / `codex - gpt-5.4-mini` — local Codex CLI
-- `pi - <provider> - <model-id>` — pi CLI (reads `~/.pi/agent/models.json`;
-  override path with `PI_MODELS_JSON` env var)
+- `--magic-prompt-provider` / `--mp` — `codex | claude | pi | anthropic | openai | openrouter`
+- `--magic-model` / `--mm` — the model id for that provider
+
+```bash
+# free OpenRouter pool (rotating), one-time key store + persist as default
+ig gen -p "a cat" -w 768 -h 768 -o out.png ideogram4 \
+   --mp openrouter --mm openrouter/free --set-mk sk-or-... --set-mp openrouter --set-mm openrouter/free
+
+# thereafter the default is openrouter/free — no flags needed
+ig gen -p "a cat" -w 768 -h 768 -o out.png ideogram4
+```
+
+- **CLI providers** (`codex`, `claude`, `pi`) shell out to a local CLI and need **no API key**.
+- **HTTP providers** (`openai`, `anthropic`, `openrouter`) need a key from `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY`, or stored once with `--set-magic-prompt-api-key` / `--set-mk` into `~/.config/ig/secrets.toml` (mode 600, never committed).
+- Persist defaults with `--set-magic-prompt-provider` / `--set-mp` and `--set-magic-model` / `--set-mm`.
+- `openrouter` accepts a comma-separated `--mm` (e.g. `a/x,b/y`) → an OpenRouter `models[]` fallback chain. `pi` takes `--mm "<pi-provider>/<model>"`.
+- With nothing configured the default is `codex` + `gpt-5.5` (unchanged).
 
 Run `ig model show ideogram4` to see all available options and their defaults.
 
