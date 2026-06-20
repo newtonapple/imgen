@@ -24,6 +24,12 @@ def build_model_group(model: Any) -> click.Group:
     gen_params: list[click.Parameter] = [
         *model.gen_options,
         click.Option(["-o", "--out"], required=True, type=click.Path(), help="output image path"),
+        click.Option(
+            ["--queue", "-q"],
+            is_flag=True,
+            default=False,
+            help="run in the background; returns a job id to poll with `ig model jobs`",
+        ),
     ]
     group.add_command(
         click.Command(

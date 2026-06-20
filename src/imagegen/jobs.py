@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import json
+import os
 import secrets as _secrets
+import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
 
-from . import config
+from . import config, daemon
+from .metadata import build_summary, write_sidecar
+from .worker import stream_request
 
 
 def _atomic_write(path: Path, data: dict[str, Any]) -> None:
@@ -71,3 +76,64 @@ def set_job_status(job_id: str, status: str, **fields: Any) -> None:
     rec["status"] = status
     rec.update(fields)
     _atomic_write(config.job_record_path(job_id), rec)
+
+
+def spawn_runner(job_id: str) -> int:
+    logp = config.job_log_path(job_id)
+    logp.parent.mkdir(parents=True, exist_ok=True)
+    with open(logp, "a") as logf:
+        proc = subprocess.Popen(
+            [sys.executable, "-m", "imagegen.jobs", job_id],
+            stdin=subprocess.DEVNULL,
+            stdout=logf,
+            stderr=logf,
+            start_new_session=True,
+        )
+    set_job_status(job_id, "queued", pid=proc.pid)
+    return proc.pid
+
+
+def _log_progress(d: dict[str, Any]) -> None:
+    print(json.dumps(d), flush=True)  # goes to the per-job log (stdout is redirected)
+
+
+def run_job(job_id: str) -> int:
+    rec = read_job(job_id)
+    if rec is None:
+        print(f"job {job_id} not found", file=sys.stderr)
+        return 1
+    model = str(rec["model"])
+    out = str(rec["out"])
+    req: dict[str, Any] = dict(rec["request"])
+    set_job_status(job_id, "running", pid=os.getpid())
+    try:
+        sock = daemon.ensure_daemon(model)
+        result = stream_request(sock, req, _log_progress)
+    except Exception as exc:  # connection reset, spawn timeout, etc.
+        set_job_status(
+            job_id, "failed", error=f"{type(exc).__name__}: {exc}", finished_at=time.time()
+        )
+        return 1
+    if not result.get("ok"):
+        set_job_status(
+            job_id,
+            "failed",
+            error=str(result.get("error", "generation failed")),
+            finished_at=time.time(),
+        )
+        return 1
+    summary = build_summary(out, result, model=model, prompt=req.get("prompt"))
+    write_sidecar(out, summary)
+    set_job_status(job_id, "done", finished_at=time.time())
+    return 0
+
+
+def _main(argv: list[str]) -> int:
+    if len(argv) != 1:
+        print("usage: python -m imagegen.jobs <job-id>", file=sys.stderr)
+        return 2
+    return run_job(argv[0])
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main(sys.argv[1:]))

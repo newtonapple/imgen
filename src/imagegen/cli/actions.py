@@ -40,11 +40,10 @@ def _render_progress(d: dict[str, Any]) -> None:
     sys.stderr.flush()
 
 
-def run_gen(model: Any, out: str, gen_opts: dict[str, Any]) -> None:
-    sock = daemon.ensure_daemon(model.name)  # auto-start + wait-ready
+def _build_request(out: str, gen_opts: dict[str, Any]) -> dict[str, Any]:
     caption = gen_opts.get("caption")
     if caption:
-        req: dict[str, Any] = {
+        return {
             "op": "generate",
             "caption": _json.loads(Path(caption).read_text()),
             "width": gen_opts["width"],
@@ -53,17 +52,29 @@ def run_gen(model: Any, out: str, gen_opts: dict[str, Any]) -> None:
             "seed": gen_opts.get("seed"),
             "output_path": out,
         }
-    else:
-        req = {
-            "op": "run",
-            "prompt": gen_opts.get("prompt"),
-            "width": gen_opts["width"],
-            "height": gen_opts["height"],
-            "preset": gen_opts.get("preset", "V4_DEFAULT_20"),
-            "seed": gen_opts.get("seed"),
-            "target_elements": gen_opts.get("target_elements", 0),
-            "output_path": out,
-        }
+    return {
+        "op": "run",
+        "prompt": gen_opts.get("prompt"),
+        "width": gen_opts["width"],
+        "height": gen_opts["height"],
+        "preset": gen_opts.get("preset", "V4_DEFAULT_20"),
+        "seed": gen_opts.get("seed"),
+        "target_elements": gen_opts.get("target_elements", 0),
+        "output_path": out,
+    }
+
+
+def run_gen(model: Any, out: str, gen_opts: dict[str, Any]) -> None:
+    req = _build_request(out, gen_opts)
+    if gen_opts.get("queue"):
+        from .. import jobs
+
+        job_id = jobs.new_job_id()
+        jobs.create_job(job_id, model=model.name, out=out, request=req)
+        jobs.spawn_runner(job_id)
+        click.echo(f"job {job_id} → {out}   (poll: ig model jobs {job_id})")
+        return
+    sock = daemon.ensure_daemon(model.name)  # auto-start + wait-ready
     result = stream_request(sock, req, _render_progress)
     sys.stderr.write("\r".ljust(40) + "\r")
     sys.stderr.flush()

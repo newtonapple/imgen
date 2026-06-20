@@ -45,3 +45,75 @@ def test_list_jobs_newest_first(tmp_path, monkeypatch):
     j.set_job_status("bbbbbb", "queued", started_at=2.0)
     ids = [r["id"] for r in j.list_jobs()]
     assert ids[0] == "bbbbbb" and ids[1] == "aaaaaa"
+
+
+def test_spawn_runner_detaches(tmp_path, monkeypatch):
+    j = _fresh(tmp_path, monkeypatch)
+    calls = {}
+
+    class FakePopen:
+        def __init__(self, argv, **kw):
+            calls["argv"] = argv
+            calls["kw"] = kw
+            self.pid = 5555
+
+    monkeypatch.setattr(j.subprocess, "Popen", FakePopen)
+    j.create_job("ab12cd", model="ideogram4", out="/tmp/o.png", request={})
+    pid = j.spawn_runner("ab12cd")
+    assert pid == 5555
+    assert calls["argv"][1:] == ["-m", "imagegen.jobs", "ab12cd"]
+    assert calls["kw"]["start_new_session"] is True
+
+
+def test_run_job_success_writes_sidecar_and_done(tmp_path, monkeypatch):
+    j = _fresh(tmp_path, monkeypatch)
+    out = tmp_path / "o.png"
+    j.create_job(
+        "ab12cd",
+        model="ideogram4",
+        out=str(out),
+        request={
+            "op": "run",
+            "prompt": "a cat",
+            "width": 64,
+            "height": 64,
+            "output_path": str(out),
+        },
+    )
+    monkeypatch.setattr(j.daemon, "ensure_daemon", lambda name: "/tmp/fake.sock")
+    monkeypatch.setattr(
+        j,
+        "stream_request",
+        lambda sock, req, on_progress=None: {
+            "ok": True,
+            "seed": 1,
+            "width": 64,
+            "height": 64,
+            "preset": "V4_TURBO_12",
+            "backend": "mlx",
+            "duration_s": 0.1,
+            "caption": {"high_level_description": "a cat"},
+        },
+    )
+    rc = j.run_job("ab12cd")
+    assert rc == 0
+    rec = j.read_job("ab12cd")
+    assert rec["status"] == "done" and rec["finished_at"] is not None
+    meta = __import__("json").loads((tmp_path / "o.png.json").read_text())
+    assert meta["caption"]["high_level_description"] == "a cat"
+
+
+def test_run_job_failure_records_error(tmp_path, monkeypatch):
+    j = _fresh(tmp_path, monkeypatch)
+    out = tmp_path / "o.png"
+    j.create_job(
+        "ab12cd", model="ideogram4", out=str(out), request={"op": "run", "output_path": str(out)}
+    )
+    monkeypatch.setattr(j.daemon, "ensure_daemon", lambda name: "/tmp/fake.sock")
+    monkeypatch.setattr(
+        j, "stream_request", lambda sock, req, on_progress=None: {"ok": False, "error": "OOM"}
+    )
+    rc = j.run_job("ab12cd")
+    assert rc == 1
+    rec = j.read_job("ab12cd")
+    assert rec["status"] == "failed" and rec["error"] == "OOM"

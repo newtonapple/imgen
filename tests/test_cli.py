@@ -341,3 +341,23 @@ def test_model_show_unknown_model_clean_error() -> None:
     assert r.exit_code != 0
     assert "Unknown model" in r.output
     assert r.exception is None or isinstance(r.exception, SystemExit)
+
+
+def test_gen_queue_spawns_and_prints_job(monkeypatch: Any, tmp_path: Any) -> None:
+    from imagegen import jobs
+
+    monkeypatch.setattr(jobs, "spawn_runner", lambda job_id: 4242)
+    monkeypatch.setenv("IG_RUNTIME_DIR", str(tmp_path))
+    import imagegen.config as cfg
+    import importlib
+
+    importlib.reload(cfg)
+    importlib.reload(jobs)
+    monkeypatch.setattr(jobs, "spawn_runner", lambda job_id: 4242)
+    out = tmp_path / "o.png"
+    r = run(["ideogram4", "gen", "-p", "a cat", "-o", str(out), "--queue"])
+    assert r.exit_code == 0, r.output
+    assert "poll: ig model jobs" in r.output
+    listed = jobs.list_jobs()
+    assert len(listed) == 1 and listed[0]["status"] == "queued"
+    importlib.reload(cfg)
