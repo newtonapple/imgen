@@ -1,5 +1,6 @@
 import importlib
-from pathlib import Path
+import shutil
+import tempfile
 
 import pytest
 
@@ -22,14 +23,18 @@ def test_runtime_paths_honor_env(tmp_path, monkeypatch):
 
 
 def test_validate_socket_path_ok(monkeypatch):
-    # Use a short, explicit path so the socket path stays under the sun_path limit on all platforms.
-    short_dir = Path("/tmp/ig_test")
-    monkeypatch.setenv("IG_RUNTIME_DIR", str(short_dir))
+    # A short, unique /tmp dir keeps the socket path under the sun_path limit on all
+    # platforms (pytest's tmp_path on macOS is /var/folders/... which is already too long).
+    short_dir = tempfile.mkdtemp(dir="/tmp", prefix="igrt")
+    monkeypatch.setenv("IG_RUNTIME_DIR", short_dir)
     import imagegen.config as c
 
     importlib.reload(c)
-    c.validate_socket_path(c.daemon_socket_path("ideogram4"))  # short path, no raise
-    importlib.reload(c)
+    try:
+        c.validate_socket_path(c.daemon_socket_path("ideogram4"))  # short path, no raise
+    finally:
+        shutil.rmtree(short_dir, ignore_errors=True)
+        importlib.reload(c)
 
 
 def test_validate_socket_path_too_long(tmp_path, monkeypatch):

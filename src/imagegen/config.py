@@ -104,8 +104,8 @@ def daemon_log_path(model: str) -> Path:
 def validate_socket_path(path: Path) -> None:
     if len(str(path).encode()) >= _SUN_PATH_MAX:
         raise RuntimeError(
-            f"socket path too long for this platform ({len(str(path))} >= {_SUN_PATH_MAX}): "
-            f"{path}. Set {RUNTIME_DIR_ENV} to a shorter directory."
+            f"socket path too long for this platform ({len(str(path).encode())} >= "
+            f"{_SUN_PATH_MAX} bytes): {path}. Set {RUNTIME_DIR_ENV} to a shorter directory."
         )
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
