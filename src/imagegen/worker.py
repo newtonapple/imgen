@@ -1,14 +1,17 @@
-"""Warm worker: one engine held in memory, one job at a time over a Unix socket."""
+"""Warm worker: one engine held in memory, one job at a time over a Unix socket (NDJSON)."""
 
 from __future__ import annotations
 
 import json
 import os
 import socket
+from collections.abc import Callable
 from typing import Any
 
 
-def handle_request(pipeline: Any, req: dict[str, Any]) -> dict[str, Any]:
+def handle_request(
+    pipeline: Any, req: dict[str, Any], emit: Callable[[dict[str, Any]], None]
+) -> dict[str, Any]:
     op = req.get("op")
     try:
         if op == "magic_prompt":
@@ -21,22 +24,24 @@ def handle_request(pipeline: Any, req: dict[str, Any]) -> dict[str, Any]:
             return {"ok": True, "caption": cap}
         if op in ("generate", "run"):
             if op == "run":
-                r = pipeline.run(
+                emit({"type": "progress", "phase": "magic-prompt"})
+                caption = pipeline.magic(
                     req["prompt"],
                     width=req["width"],
                     height=req["height"],
-                    preset=req.get("preset", "V4_DEFAULT_20"),
-                    seed=req.get("seed"),
                     target_elements=req.get("target_elements", 0),
                 )
             else:
-                r = pipeline.generate(
-                    req["caption"],
-                    width=req["width"],
-                    height=req["height"],
-                    preset=req.get("preset", "V4_DEFAULT_20"),
-                    seed=req.get("seed"),
-                )
+                caption = req["caption"]
+            emit({"type": "progress", "phase": "sampling"})
+            r = pipeline.generate(
+                caption,
+                width=req["width"],
+                height=req["height"],
+                preset=req.get("preset", "V4_DEFAULT_20"),
+                seed=req.get("seed"),
+            )
+            emit({"type": "progress", "phase": "saving"})
             r.image.save(req["output_path"])
             return {
                 "ok": True,
@@ -44,7 +49,8 @@ def handle_request(pipeline: Any, req: dict[str, Any]) -> dict[str, Any]:
                 "width": r.width,
                 "height": r.height,
                 "preset": r.preset,
-                "caption": r.caption,
+                "caption": caption,
+                "backend": r.backend,
                 "output_path": req["output_path"],
                 "duration_s": r.duration_s,
             }
@@ -58,7 +64,7 @@ def serve(socket_path: str, pipeline: Any) -> None:
         os.unlink(socket_path)
     srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     srv.bind(socket_path)
-    srv.listen(1)
+    srv.listen(64)
     try:
         while True:
             conn, _ = srv.accept()
@@ -66,19 +72,39 @@ def serve(socket_path: str, pipeline: Any) -> None:
                 data = conn.makefile("r").readline()
                 if not data:
                     continue
-                resp = handle_request(pipeline, json.loads(data))
-                conn.sendall((json.dumps(resp) + "\n").encode())
+
+                def emit(d: dict[str, Any]) -> None:
+                    conn.sendall((json.dumps(d) + "\n").encode())
+
+                result = handle_request(pipeline, json.loads(data), emit)
+                emit(result)
     finally:
         srv.close()
         if os.path.exists(socket_path):
             os.unlink(socket_path)
 
 
-def send_request(socket_path: str, req: dict[str, Any]) -> dict[str, Any]:
+def stream_request(
+    socket_path: str,
+    req: dict[str, Any],
+    on_progress: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.connect(socket_path)
     s.sendall((json.dumps(req) + "\n").encode())
-    line = s.makefile("r").readline()
-    s.close()
-    resp: dict[str, Any] = json.loads(line)
-    return resp
+    f = s.makefile("r")
+    try:
+        for line in f:
+            d: dict[str, Any] = json.loads(line)
+            if d.get("type") == "progress":
+                if on_progress is not None:
+                    on_progress(d)
+                continue
+            return d
+        raise RuntimeError("worker closed the connection without a result")
+    finally:
+        s.close()
+
+
+def send_request(socket_path: str, req: dict[str, Any]) -> dict[str, Any]:
+    return stream_request(socket_path, req, None)

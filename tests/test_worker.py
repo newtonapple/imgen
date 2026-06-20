@@ -1,64 +1,75 @@
 # tests/test_worker.py
 from __future__ import annotations
 
-import os
-import tempfile
-import threading
-import time
 
-from imagegen.engine.base import GenerationResult
-from imagegen.worker import handle_request, send_request, serve
+def _fake_pipeline():
+    class FakeImg:
+        def save(self, p):
+            open(p, "wb").close()
 
+    class FakeResult:
+        def __init__(self, seed):
+            self.image = FakeImg()
+            self.seed = seed or 1
+            self.width = 64
+            self.height = 64
+            self.preset = "V4_TURBO_12"
+            self.caption = {"high_level_description": "x"}
+            self.backend = "fake"
+            self.duration_s = 0.1
 
-class FakeImg:
-    size = (512, 512)
+    class FakePipeline:
+        def magic(self, prompt, *, width, height, target_elements=0):
+            return {"high_level_description": prompt}
 
-    def save(self, path):
-        open(path, "wb").close()
+        def generate(self, caption, *, width, height, preset, seed):
+            return FakeResult(seed)
 
-
-class FakePipeline:
-    def run(self, prompt, *, width, height, preset, seed, target_elements=0):
-        return GenerationResult(
-            image=FakeImg(),  # type: ignore[arg-type]
-            seed=seed or 1,
-            width=width,
-            height=height,
-            preset=preset,
-            caption={"high_level_description": prompt},
-            backend="fake",
-            duration_s=0.1,
-        )
+    return FakePipeline()
 
 
-def test_handle_run_writes_image_and_returns_params(tmp_path):
+def test_handle_run_emits_progress_and_result(tmp_path):
+    from imagegen.worker import handle_request
+
     out = tmp_path / "o.png"
-    resp = handle_request(
-        FakePipeline(),
+    events: list[dict[str, object]] = []
+    res = handle_request(
+        _fake_pipeline(),
         {
             "op": "run",
             "prompt": "a cat",
-            "width": 512,
-            "height": 512,
-            "preset": "V4_DEFAULT_20",
+            "width": 64,
+            "height": 64,
             "seed": 9,
+            "preset": "V4_TURBO_12",
             "output_path": str(out),
         },
+        events.append,
     )
-    assert resp["ok"] and resp["seed"] == 9 and out.exists()
+    phases = [e["phase"] for e in events if e.get("type") == "progress"]
+    assert "magic-prompt" in phases and "sampling" in phases and "saving" in phases
+    assert res["ok"] and res["seed"] == 9 and res["caption"]["high_level_description"] == "a cat"
+    assert out.exists()
 
 
 def test_handle_unknown_op_returns_error():
-    resp = handle_request(FakePipeline(), {"op": "nope"})
+    from imagegen.worker import handle_request
+
+    resp = handle_request(_fake_pipeline(), {"op": "nope"}, lambda _d: None)
     assert resp["ok"] is False and "op" in resp["error"].lower()
 
 
 def test_socket_roundtrip(tmp_path):
-    # Use a short path under /tmp to stay within AF_UNIX's 104-char limit on macOS.
+    import os
+    import tempfile
+    import threading
+    import time
+    from imagegen.worker import send_request, serve
+
     with tempfile.TemporaryDirectory(dir="/tmp") as td:
         sock = os.path.join(td, "w.sock")
         out = str(tmp_path / "o.png")
-        t = threading.Thread(target=serve, args=(sock, FakePipeline()), daemon=True)
+        t = threading.Thread(target=serve, args=(sock, _fake_pipeline()), daemon=True)
         t.start()
         for _ in range(50):
             if os.path.exists(sock):
@@ -71,8 +82,8 @@ def test_socket_roundtrip(tmp_path):
                 "prompt": "x",
                 "width": 64,
                 "height": 64,
-                "preset": "V4_TURBO_12",
                 "seed": 3,
+                "preset": "V4_TURBO_12",
                 "output_path": out,
             },
         )
