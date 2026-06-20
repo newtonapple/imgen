@@ -28,9 +28,11 @@ def platform_cmd() -> None:
 from . import gen as _gen_module  # noqa: E402
 from . import serve as _serve_module  # noqa: E402
 from .model import model_group  # noqa: E402
+from .subcommands import register_models  # noqa: E402
 
 ig.add_command(_gen_module.gen)
 ig.add_command(_serve_module.serve)
 ig.add_command(model_group)
+register_models()  # attach each model as a nested subcommand of gen + serve
 
 main = ig

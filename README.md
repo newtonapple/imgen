@@ -67,22 +67,22 @@ ig --help
 # one-time: tell ig where the weights are
 ig model set-path ideogram4 /Volumes/PRO-G40/data/models/image-gen/ideogram-4-fp8
 
-# end-to-end
+# end-to-end (model is a subcommand — options follow the model name, no `--`)
 ig gen -p "a ginger cat wizard" --width 768 --height 768 --seed 42 --out out.png \
-   ideogram4 -- --preset V4_DEFAULT_20
+   ideogram4 --preset V4_DEFAULT_20
 
 # int8 on load
-ig gen -p "..." --out out.png ideogram4 -- --quantize 8
+ig gen -p "..." --out out.png ideogram4 --quantize 8
 
 # from a prebuilt caption
-ig gen --out out.png ideogram4 -- --caption caption.json
+ig gen --out out.png ideogram4 --caption caption.json
 
 # list / inspect models
 ig model list
 ig model show ideogram4
 
 # warm worker
-ig serve --socket /tmp/ig.sock ideogram4 -- --preset V4_DEFAULT_20
+ig serve --socket /tmp/ig.sock ideogram4 --preset V4_DEFAULT_20
 
 ig platform
 ```

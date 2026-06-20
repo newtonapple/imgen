@@ -35,7 +35,7 @@ def show_cmd(name: str) -> None:
     click.echo(f"description: {m.description}")
     click.echo(f"backends: {', '.join(b.value for b in m.supported_backends)}")
     click.echo(f"weights path: {cfg.model_path(m.name) or '(not set)'}")
-    click.echo("model options (pass after `--`):")
+    click.echo("model options (pass after the model name):")
     with click.Context(m.model_options) as ctx:
         click.echo(m.model_options.get_help(ctx))
 
