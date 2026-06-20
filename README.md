@@ -30,6 +30,50 @@ result.image.save("out.png")
 The same engine instance is what a worker holds warm and calls per job; the CLI
 is just one caller.
 
+## Project layout
+
+```
+src/imgen/
+  cli/               # `ig` CLI (Click)
+    __main__.py      #   `python -m imgen.cli` entry (daemon/job self-spawn target)
+    model_cli.py     #   builds a Click group per registered model (gen/serve/stop/config)
+    actions.py       #   gen/serve/stop/config command bodies (daemon client)
+    model.py         #   `ig model` group: list / show / jobs / clean / stop-all
+  models/            # model registry + plugins — the extension point
+    base.py          #   the `Model` Protocol every model implements
+    __init__.py      #   register() / get() / all_models()
+    ideogram4.py     #   first model plugin
+  engine/            # inference backends (load weights, denoise, decode)
+    base.py          #   `ImageEngine` + `GenerationResult`
+    factory.py       #   create_pipeline(): model spec + backend -> engine
+    mlx_engine.py    #   MLX backend (mflux), Apple Silicon
+    torch_engine.py  #   PyTorch/CUDA backend, DGX Spark
+    resolution.py    #   width/height rounding + clamping
+  magic_prompt/      # text -> structured JSON caption (Ideogram-4-specific)
+    providers.py     #   provider factory + config resolution
+    cli_provider.py  #   codex / claude / pi (shell out, no key)
+    http_provider.py #   openai / anthropic / openrouter (stdlib urllib)
+    _caption_prompt.py, templates/   # prompt building + JSON extraction
+  pipeline.py        # Pipeline = engine + magic_prompt; the unit a worker holds warm
+  worker.py          # warm worker: one engine, one job at a time, NDJSON over a Unix socket
+  daemon.py          # one daemon per model: registry, liveness, auto-start, stop
+  jobs.py            # `--queue` background jobs: records, detached runner, clean
+  metadata.py        # `<out>.json` sidecar/summary builder (shared by gen + jobs)
+  config.py          # Config/Secrets (TOML) + runtime dirs / socket-path helpers
+  platform.py        # platform + default-backend detection
+  caption.py         # caption-schema validation helpers
+tests/               # pytest, one test_*.py per module (offline; real GPU behind @integration)
+scripts/setup.sh     # `make install`: build the venv + install imgen[extra]
+```
+
+**Adding a model:** implement the `Model` Protocol in `models/<name>.py`, call
+`models.register(...)` at import, and import the module so it registers. The CLI
+builds the `ig <name>` group automatically. Reuse the `engine/` backends and the
+`pipeline.py` / `worker.py` / `daemon.py` machinery — only add a new engine or
+magic-prompt mechanism if the model genuinely needs one. Keep `engine/`, `worker`,
+`daemon`, `jobs`, and `cli/` model-agnostic; model-specific logic lives in `models/`
+and (where applicable) `magic_prompt/`.
+
 ## Weights
 
 Model weights are **never committed and never live in iCloud** — they sit on an
