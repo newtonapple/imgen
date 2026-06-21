@@ -79,6 +79,7 @@ platform backend extra — which also installs the `ig` CLI:
 ```bash
 make install    # ~/.venvs/imgen + imgen[mlx] on Apple Silicon, imgen[cuda] on Linux
 make test       # unit tests (no weights needed)
+make test-integration  # integration tests (real API/GPU; self-skip when no key/weights)
 make fmt        # format the code in place (ruff format)
 make style      # format in place, then lint (ruff format + ruff check)
 make lint       # ruff check + ruff format --check + mypy (no changes)

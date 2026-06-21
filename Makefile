@@ -3,7 +3,7 @@
 IMGEN_VENV ?= $(HOME)/.venvs/imgen
 PY := $(IMGEN_VENV)/bin/python
 
-.PHONY: install test lint fmt style platform clean
+.PHONY: install test test-integration lint fmt style platform clean
 
 # Create the venv (outside iCloud) and install imgen (editable) + the platform
 # backend extra. Also installs the `imgen` CLI entry point into the venv.
@@ -12,6 +12,9 @@ install:
 
 test:
 	$(PY) -m pytest -m "not integration"
+
+test-integration:
+	$(PY) -m pytest -m integration
 
 # Format the code in place (ruff format).
 fmt:
