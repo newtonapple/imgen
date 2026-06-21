@@ -10,9 +10,10 @@ from ..config import Config, MAGIC_MODEL_ENV, MAGIC_PROVIDER_ENV, Secrets
 from .base import MagicPromptProvider
 from .cli_provider import CliMagicPromptProvider
 from .http_provider import PROVIDERS, HttpMagicPromptProvider
+from .ideogram_provider import IDEOGRAM_API_KEY_ENV, IdeogramMagicPromptProvider
 
 CLI_PROVIDERS = {"codex", "claude", "pi"}
-HTTP_PROVIDERS = set(PROVIDERS)  # {"openai", "anthropic", "openrouter"}
+HTTP_PROVIDERS = set(PROVIDERS) | {"ideogram"}  # all providers that need an API key
 ALL_PROVIDERS = CLI_PROVIDERS | HTTP_PROVIDERS
 
 DEFAULT_MODELS = {
@@ -21,6 +22,7 @@ DEFAULT_MODELS = {
     "openai": "gpt-4o-mini",
     "anthropic": "claude-haiku-4-5",
     "openrouter": "openrouter/free",
+    "ideogram": "v4",  # ignored — the hosted magic-prompt endpoint has no model selector
 }  # pi has no default — it needs an explicit "<pi-provider>/<model>".
 
 
@@ -57,13 +59,21 @@ def effective_magic(
 def make_magic_provider(provider: str, model: str, *, secrets: Secrets) -> MagicPromptProvider:
     if provider in CLI_PROVIDERS:
         return CliMagicPromptProvider(provider, model)
-    if provider in HTTP_PROVIDERS:
+    if provider == "ideogram":
+        key = os.environ.get(IDEOGRAM_API_KEY_ENV) or secrets.api_key("ideogram")
+        if not key:
+            raise click.ClickException(
+                f"no API key for ideogram; set {IDEOGRAM_API_KEY_ENV} or run "
+                f"`ig ideogram4 config set-key ideogram <key>`"
+            )
+        return IdeogramMagicPromptProvider(model, api_key=key)
+    if provider in PROVIDERS:
         spec = PROVIDERS[provider]
         key = os.environ.get(spec.env_var) or secrets.api_key(provider)
         if not key:
             raise click.ClickException(
                 f"no API key for {provider}; set {spec.env_var} or run "
-                f"`ig gen ... ideogram4 --mp {provider} --set-mk <key>`"
+                f"`ig ideogram4 config set-key {provider} <key>`"
             )
         return HttpMagicPromptProvider(spec, model, api_key=key)
     raise click.ClickException(

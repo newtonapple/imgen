@@ -4,6 +4,7 @@ from imgen.config import Config, Secrets
 from imgen.magic_prompt import providers as P
 from imgen.magic_prompt.cli_provider import CliMagicPromptProvider
 from imgen.magic_prompt.http_provider import HttpMagicPromptProvider
+from imgen.magic_prompt.ideogram_provider import IdeogramMagicPromptProvider
 
 
 def test_make_provider_cli_no_key():
@@ -41,6 +42,30 @@ def test_make_provider_unknown_errors():
 
     with pytest.raises(click.ClickException, match="unknown magic-prompt provider"):
         P.make_magic_provider("nope", "x", secrets=Secrets({}))
+
+
+def test_make_provider_ideogram_resolves_key_from_secrets(monkeypatch):
+    monkeypatch.delenv("IDEOGRAM_API_KEY", raising=False)
+    secrets = Secrets({"ideogram": {"api_key": "ig-from-secrets"}})
+    p = P.make_magic_provider("ideogram", "v4", secrets=secrets)
+    assert isinstance(p, IdeogramMagicPromptProvider)
+    assert p.api_key == "ig-from-secrets"
+
+
+def test_make_provider_ideogram_env_beats_secrets(monkeypatch):
+    monkeypatch.setenv("IDEOGRAM_API_KEY", "ig-env")
+    p = P.make_magic_provider(
+        "ideogram", "v4", secrets=Secrets({"ideogram": {"api_key": "ig-sec"}})
+    )
+    assert isinstance(p, IdeogramMagicPromptProvider) and p.api_key == "ig-env"
+
+
+def test_make_provider_ideogram_missing_key_errors(monkeypatch):
+    monkeypatch.delenv("IDEOGRAM_API_KEY", raising=False)
+    import click
+
+    with pytest.raises(click.ClickException, match="no API key for ideogram"):
+        P.make_magic_provider("ideogram", "v4", secrets=Secrets({}))
 
 
 def test_resolve_magic_provider_reads_config_then_defaults():

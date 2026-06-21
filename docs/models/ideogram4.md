@@ -169,7 +169,8 @@ restart; the group-level override applies at daemon build time (serve-compatible
 | Family | Providers | Key required? | Key source |
 | --- | --- | --- | --- |
 | CLI (shell out) | `codex`, `claude`, `pi` | No | — |
-| HTTP | `openai`, `anthropic`, `openrouter` | Yes | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` env var, or `ig ideogram4 config set-key <provider> <key>` |
+| HTTP chat | `openai`, `anthropic`, `openrouter` | Yes | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENROUTER_API_KEY` env var, or `ig ideogram4 config set-key <provider> <key>` |
+| Ideogram hosted | `ideogram` | Yes | `IDEOGRAM_API_KEY` env var, or `ig ideogram4 config set-key ideogram <key>` |
 
 - The default provider/model is `codex` + `gpt-5.5` when nothing is configured.
 - `ig ideogram4 config set-key <provider> <key>` stores an HTTP API key in
@@ -179,6 +180,18 @@ restart; the group-level override applies at daemon build time (serve-compatible
   (e.g. `openrouter/free,openai/gpt-4o`) → an OpenRouter `models[]` fallback chain.
 - **`pi`** takes `magic-model "<pi-provider>/<model>"` (reads
   `~/.pi/agent/models.json`; override with `PI_MODELS_JSON`).
+- **`ideogram`** calls Ideogram's own hosted magic-prompt API — the reference
+  implementation. **Get an API key at
+  [developer.ideogram.ai](https://developer.ideogram.ai)** (log in → API Dashboard
+  / [ideogram.ai/manage-api](https://ideogram.ai/manage-api) → accept the Developer
+  API Agreement → add payment info → create a key), then store it with
+  `ig ideogram4 config set-key ideogram <key>` (or the `IDEOGRAM_API_KEY` env var).
+  The prompt **expansion itself is free** — imgen only calls the magic-prompt
+  endpoint, not the paid per-image generate endpoint. The endpoint returns the
+  structured caption directly, so `--mm`/`magic-model` (always `v4`) and
+  `--target-elements` are ignored. **Rate limit:** the default is
+  [10 in-flight requests](https://ideogram.ai/features/api-pricing) per API account;
+  429s surface as a `rate-limited by ideogram; retry shortly` error.
 
 ```bash
 # free OpenRouter pool (rotating) — store key + persist as default
@@ -192,9 +205,9 @@ ig ideogram4 gen -p "a cat" -o out.png --mm anthropic/claude-haiku-4-5
 
 **Reference:** Ideogram's open-source [magic-prompt system prompt](https://github.com/ideogram-oss/ideogram4/blob/main/src/ideogram4/magic_prompt_system_prompts/v1.txt)
 defines the exact caption contract our providers produce (single-line minified
-JSON, the three top-level keys, `bbox` strategy, text-handling rules). The hosted
-Ideogram magic-prompt API (free, server-side; key at developer.ideogram.ai) is the
-reference implementation; our local/HTTP providers are drop-in alternatives.
+JSON, the three top-level keys, `bbox` strategy, text-handling rules). The `ideogram`
+provider *is* that hosted magic-prompt API; the CLI and HTTP-chat providers are
+drop-in alternatives that produce the same contract.
 
 ## Model components
 
