@@ -1,19 +1,17 @@
 # Ideogram 4
 
-**Ideogram 4** is the first supported imgen model. One model directory — the
-official `ideogram-ai/ideogram-4-fp8` checkpoint — serves both backends:
+**Ideogram 4** is the first supported imgen model. Point each backend at its
+own local snapshot directory via `weights-path`:
 
 | Platform | Backend | How |
 | --- | --- | --- |
 | Apple Silicon | **MLX** | [mflux](https://github.com/filipstrand/mflux) |
-| Linux / CUDA | **PyTorch** | official [`ideogram4`](https://github.com/ideogram-oss/ideogram4) pipeline |
+| Linux / CUDA | **PyTorch** | official [`ideogram4`](https://github.com/ideogram-oss/ideogram4) package |
 
-Precision variants come from quantizing the fp8 checkpoint **on load** (see
-*Config keys* → `quantize`).
-
-> **Status:** the MLX (Apple Silicon) path is complete and validated end-to-end.
-> The PyTorch/CUDA backend is pending bring-up (`engine/torch_engine.py` is a
-> stub).
+> **Status:** Both paths are implemented. CUDA uses the official `ideogram4`
+> package's own loader on a local snapshot dir; the **nf4** build is validated
+> end-to-end on the DGX Spark (fp8 should work via the same package, pending
+> confirmation). MLX uses the fp8 checkpoint with optional on-load `quantize`.
 
 ## Config keys
 
@@ -235,3 +233,32 @@ The MLX backend (mflux) also supports `--num-inference-steps` / `--guidance`
 schedule), `--lora-paths` / `--lora-scales`, and `--low-ram` /
 `--mlx-cache-limit-gb`. We can surface any of these if needed; the presets are the
 intended interface.
+
+## PyTorch (CUDA) backend
+
+On Linux/CUDA, imgen wraps the official [`ideogram4`](https://github.com/ideogram-oss/ideogram4)
+package's own loader, building the pipeline once (warm) from a **local snapshot
+directory** (`model_index.json` + `transformer/` + `unconditional_transformer/` +
+`text_encoder/` + `tokenizer/` + `vae/`). Select the build by pointing
+`weights-path` at it — same mechanism as MLX:
+
+```bash
+ig ideogram4 config set weights-path /path/to/ideogram-4-nf4
+ig ideogram4 config set backend torch
+```
+
+- **nf4** (`ideogram-4-nf4`) is the validated build; it loads via `bitsandbytes`
+  4-bit quantization (the `[cuda]` extra installs it). Smallest/lowest-memory.
+- **fp8** (`ideogram-4-fp8`) uses the package's custom `ideogram_fp8_weight_only`
+  path; it should load via the same package (pending confirmation on the Spark).
+- We deliberately do **not** use diffusers' `Ideogram4Pipeline`: its bitsandbytes
+  load path mishandles meta tensors on the CUDA 13 / torch 2.12 stack.
+- **Loading local weights:** the package's `from_pretrained` only takes a HF repo
+  id; imgen sets `weights_repo` to the local dir and resolves the package's
+  `hf_hub_download` against it (no network, no HF cache). transformers'
+  AutoTokenizer/AutoModel load the tokenizer/text-encoder from the local subfolders.
+- `quantize` is MLX-only and is ignored by the torch backend (precision comes
+  from the chosen build). Presets, dimensions (multiples of 16), and the JSON
+  caption contract are identical across backends. `dtype` is `bfloat16`.
+- **Env note:** `transformers>=5.0` (4.57.3 has a Qwen tokenizer bug); validated
+  with torch 2.12.1+cu130 / transformers 5.12.1 / bitsandbytes 0.49.2 on a GB10.

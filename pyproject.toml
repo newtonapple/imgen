@@ -15,16 +15,21 @@ dependencies = [
 mlx = [
   "mflux>=0.18.0",
 ]
-# CUDA: PyTorch reference pipeline + official ideogram4 package.
+# CUDA (Linux / DGX Spark): the official `ideogram4` package's own loader.
+# diffusers' Ideogram4Pipeline is NOT used — its bitsandbytes path mishandles
+# meta tensors on the CUDA 13 / torch 2.12 stack. transformers is pinned >=5.0:
+# 4.57.3 has a Qwen tokenizer `extra_special_tokens` bug. Validated end-to-end on
+# the DGX Spark with torch 2.12.1+cu130 / transformers 5.12.1 / bitsandbytes 0.49.2.
 cuda = [
-  "torch>=2.11",
-  "transformers>=4.49.0",
+  "torch",
+  "ideogram-4 @ git+https://github.com/ideogram-oss/ideogram4.git@main",
+  "transformers>=5.0",
   "accelerate>=1.0.0",
   "safetensors>=0.4.5",
+  "bitsandbytes>=0.49.2",
   "einops>=0.7.0",
   "sentencepiece",
-  "bitsandbytes>=0.49.2",
-  "ideogram-4 @ git+https://github.com/ideogram-oss/ideogram4.git@main",
+  "protobuf",
 ]
 dev = [
   "pytest>=8.0",
@@ -86,8 +91,9 @@ module = [
   "transformers", "transformers.*",
   "accelerate", "accelerate.*",
   "safetensors", "safetensors.*",
+  "bitsandbytes", "bitsandbytes.*",
+  "ideogram4", "ideogram4.*",
   "einops", "einops.*",
   "huggingface_hub", "huggingface_hub.*",
-  "ideogram4", "ideogram4.*",
 ]
 ignore_missing_imports = true

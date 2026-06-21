@@ -11,7 +11,7 @@ backends, selected per platform:
 | Platform | Backend | How |
 | --- | --- | --- |
 | Apple Silicon | **MLX** | [mflux](https://github.com/filipstrand/mflux) |
-| Linux / CUDA | **PyTorch** | official [`ideogram4`](https://github.com/ideogram-oss/ideogram4) pipeline |
+| Linux / CUDA | **PyTorch** | official [`ideogram4`](https://github.com/ideogram-oss/ideogram4) package |
 
 ## Architecture
 
@@ -122,15 +122,15 @@ Run `ig model show ideogram4` to see all config keys and gen options for a model
   magic-prompt provider plumbing. Model-agnostic.
 - **[`docs/models/`](docs/models/)** — per-model references (config keys, presets,
   caption schema, model components, backend notes):
-  - **[Ideogram 4](docs/models/ideogram4.md)** — fp8 checkpoint serving MLX (Apple
-    Silicon, via mflux) and PyTorch/CUDA backends; on-load `quantize`.
+  - **[Ideogram 4](docs/models/ideogram4.md)** — `ideogram4` package/nf4 on CUDA (Linux)
+    and MLX (Apple Silicon, via mflux) backends; on-load `quantize` (MLX only).
 
 Local planning notes (design specs, plans, handoffs) live under `docs/design/`,
 `docs/plans/`, `docs/superpowers/`, etc. and are **not tracked** — see `.gitignore`.
 
 ## Status
 
-MLX backend (Apple Silicon via mflux) is implemented and validated end-to-end.
-The PyTorch/CUDA backend is **not yet implemented** (`engine/torch_engine.py`
-raises `NotImplementedError`); a CUDA/Linux bring-up is planned. See each
-model's doc for model-specific status.
+Both backends are implemented: MLX (Apple Silicon, via mflux) and PyTorch/CUDA
+(Linux, via the official `ideogram4` package). The CUDA backend loads a local
+Ideogram-4 snapshot directly; the nf4 build is validated end-to-end on the DGX
+Spark (fp8 should work via the same package and is pending confirmation).
