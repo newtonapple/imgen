@@ -68,10 +68,13 @@ IG_QUANTIZE=8 ig ideogram4 gen -p "a cat" -o out.png  # env var
 
 - **`-p`**, **`--prompt`** *(str)* — plain-text prompt to expand into a structured
   JSON caption. Optional if `--caption` is given.
-- **`-w`**, **`--width`** *(int, default 1024)* — output width in px. Rounded to a
-  multiple of 16, floored at 256 (range 256–2048).
-- **`-h`**, **`--height`** *(int, default 1024)* — output height in px. Same rules
-  as width.
+- **`-w`**, **`--width`** *(int, default 1024)* — output width in px. Rounded to the
+  nearest multiple of 16 (minimum 256), with a stderr warning if that changes the
+  value (the model requires multiples of 16). The model supports 256–2048 with
+  aspect ≤ 6:1; values beyond that are not clamped and may be rejected by the
+  backend.
+- **`-h`**, **`--height`** *(int, default 1024)* — output height in px. Same as
+  width.
 - **`--seed`** *(int, default random)* — RNG seed. Same seed + caption + params ⇒
   reproducible; omit for random.
 - **`--preset`** *(name, default `V4_DEFAULT_20`)* — sampler bundle. See [Presets](#presets).

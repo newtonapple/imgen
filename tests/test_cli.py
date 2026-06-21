@@ -563,3 +563,63 @@ def test_gen_queue_spawns_and_prints_job(monkeypatch: Any, tmp_path: Any) -> Non
     listed = jobs.list_jobs()
     assert len(listed) == 1 and listed[0]["status"] == "queued"
     importlib.reload(cfg)
+
+
+# Non-multiple-of-16 dims are rounded in the request and a warning is printed.
+def test_gen_rounds_non_multiple_of_16_and_warns(monkeypatch: Any, tmp_path: Any) -> None:
+    import imgen.cli.actions as actions
+    from imgen import daemon
+
+    monkeypatch.setattr(daemon, "ensure_daemon", lambda name: "/tmp/fake.sock")
+    seen: dict[str, Any] = {}
+
+    def fake_stream(sock: str, req: dict[str, Any], on_progress: Any = None) -> dict[str, Any]:
+        seen.update(req)
+        open(req["output_path"], "wb").close()
+        return {
+            "ok": True,
+            "seed": 1,
+            "width": req["width"],
+            "height": req["height"],
+            "preset": "V4_DEFAULT_20",
+            "backend": "mlx",
+            "duration_s": 0.1,
+            "caption": None,
+        }
+
+    monkeypatch.setattr(actions, "stream_request", fake_stream)
+    out = tmp_path / "o.png"
+    r = run(["ideogram4", "gen", "-p", "x", "-w", "700", "-h", "700", "-o", str(out)])
+    assert r.exit_code == 0, r.output
+    assert seen["width"] == 704 and seen["height"] == 704
+    assert "700 -> 704" in r.output
+
+
+# A multiple-of-16 size passes through unchanged with no rounding warning.
+def test_gen_no_warning_for_multiple_of_16(monkeypatch: Any, tmp_path: Any) -> None:
+    import imgen.cli.actions as actions
+    from imgen import daemon
+
+    monkeypatch.setattr(daemon, "ensure_daemon", lambda name: "/tmp/fake.sock")
+    seen: dict[str, Any] = {}
+
+    def fake_stream(sock: str, req: dict[str, Any], on_progress: Any = None) -> dict[str, Any]:
+        seen.update(req)
+        open(req["output_path"], "wb").close()
+        return {
+            "ok": True,
+            "seed": 1,
+            "width": req["width"],
+            "height": req["height"],
+            "preset": "V4_DEFAULT_20",
+            "backend": "mlx",
+            "duration_s": 0.1,
+            "caption": None,
+        }
+
+    monkeypatch.setattr(actions, "stream_request", fake_stream)
+    out = tmp_path / "o.png"
+    r = run(["ideogram4", "gen", "-p", "x", "-w", "768", "-h", "768", "-o", str(out)])
+    assert r.exit_code == 0, r.output
+    assert seen["width"] == 768 and seen["height"] == 768
+    assert "warning: width" not in r.output and "warning: height" not in r.output

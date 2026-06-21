@@ -11,6 +11,7 @@ import click
 
 from .. import daemon, metadata
 from ..config import Config, Secrets, resolve_backend, resolve_weights_path, daemon_log_path
+from ..engine.resolution import resolve_size
 from ..magic_prompt.providers import ALL_PROVIDERS
 from ..platform import Backend, default_backend
 from ..worker import stream_request
@@ -49,14 +50,26 @@ def _render_progress(d: dict[str, Any]) -> None:
     sys.stderr.flush()
 
 
+def _resolve_dims(width: Any, height: Any) -> tuple[int, int]:
+    """Round to the model's pixel grid (multiples of 16, min 256); warn on change."""
+    w, h = int(width), int(height)
+    rw, rh = resolve_size(w, h)
+    if rw != w:
+        click.echo(f"warning: width {w} -> {rw} (Ideogram 4 requires multiples of 16)", err=True)
+    if rh != h:
+        click.echo(f"warning: height {h} -> {rh} (Ideogram 4 requires multiples of 16)", err=True)
+    return rw, rh
+
+
 def _build_request(out: str, gen_opts: dict[str, Any]) -> dict[str, Any]:
+    width, height = _resolve_dims(gen_opts["width"], gen_opts["height"])
     caption = gen_opts.get("caption")
     if caption:
         return {
             "op": "generate",
             "caption": _json.loads(Path(caption).read_text()),
-            "width": gen_opts["width"],
-            "height": gen_opts["height"],
+            "width": width,
+            "height": height,
             "preset": gen_opts.get("preset", "V4_DEFAULT_20"),
             "seed": gen_opts.get("seed"),
             "output_path": out,
@@ -64,8 +77,8 @@ def _build_request(out: str, gen_opts: dict[str, Any]) -> dict[str, Any]:
     return {
         "op": "run",
         "prompt": gen_opts.get("prompt"),
-        "width": gen_opts["width"],
-        "height": gen_opts["height"],
+        "width": width,
+        "height": height,
         "preset": gen_opts.get("preset", "V4_DEFAULT_20"),
         "seed": gen_opts.get("seed"),
         "target_elements": gen_opts.get("target_elements", 0),
