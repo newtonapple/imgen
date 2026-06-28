@@ -35,15 +35,20 @@ def handle_request(
                     magic_provider=req.get("magic_provider"),
                     magic_model=req.get("magic_model"),
                 )
+                emit({"type": "progress", "phase": "caption", "caption": caption})
             else:
                 caption = req["caption"]
-            emit({"type": "progress", "phase": "sampling"})
+
+            def _on_step(done: int, total: int) -> None:
+                emit({"type": "progress", "phase": "sampling", "step": done, "total": total})
+
             r = pipeline.generate(
                 caption,
                 width=req["width"],
                 height=req["height"],
                 preset=req.get("preset", "V4_DEFAULT_20"),
                 seed=req.get("seed"),
+                progress=_on_step,
             )
             emit({"type": "progress", "phase": "saving"})
             r.image.save(req["output_path"])

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import random
 import time
+from collections.abc import Callable
 from typing import Any
 
 from ..caption import model_caption, validate_caption
@@ -53,20 +54,37 @@ class MlxEngine:
         height: int,
         preset: str = "V4_DEFAULT_20",
         seed: int | None = None,
+        progress: "Callable[[int, int], None] | None" = None,
     ) -> GenerationResult:
         caption_dict = caption if isinstance(caption, dict) else json.loads(caption)
         validate_caption(caption_dict)  # warn-not-fail
         if seed is None:
             seed = random.randint(0, _SEED_MAX)
 
+        reporter = None
+        if progress is not None:
+            class _StepReporter:  # mflux InLoopCallback (duck-typed)
+                def call_in_loop(self, t, *args, time_steps=None, **kwargs):
+                    total = len(time_steps) if time_steps is not None else 0
+                    progress(int(t) + 1, int(total))   # 1-based completed steps
+            reporter = _StepReporter()
+            self._generator.callbacks.register(reporter)
+
         t0 = time.time()
-        result = self._generator.generate_image(
-            prompt=model_caption(caption_dict),  # drop non-schema keys (e.g. aspect_ratio)
-            seed=seed,
-            width=width,
-            height=height,
-            preset=preset,
-        )
+        try:
+            result = self._generator.generate_image(
+                prompt=model_caption(caption_dict),  # drop non-schema keys (e.g. aspect_ratio)
+                seed=seed,
+                width=width,
+                height=height,
+                preset=preset,
+            )
+        finally:
+            if reporter is not None:
+                try:
+                    self._generator.callbacks.in_loop.remove(reporter)
+                except (AttributeError, ValueError):
+                    pass
         image = getattr(result, "image", result)  # GeneratedImage wraps a PIL image
         return GenerationResult(
             image=image,

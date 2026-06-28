@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import random
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -123,6 +124,7 @@ class TorchEngine:
         height: int,
         preset: str = "V4_DEFAULT_20",
         seed: int | None = None,
+        progress: "Callable[[int, int], None] | None" = None,
     ) -> GenerationResult:
         from ideogram4 import PRESETS
 
@@ -132,6 +134,7 @@ class TorchEngine:
         if seed is None:
             seed = random.randint(0, _SEED_MAX)
         params = PRESETS[preset]
+        cb = (lambda done, total: progress(done, total)) if progress is not None else None
         t0 = time.time()
         images = self._pipe(
             prompt,
@@ -143,6 +146,7 @@ class TorchEngine:
             std=params.std,
             seed=seed,
             raise_on_caption_issues=False,  # warn-not-fail; magic-prompt output conforms
+            callback=cb,
         )
         return GenerationResult(
             image=images[0],

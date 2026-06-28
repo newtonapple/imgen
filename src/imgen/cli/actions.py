@@ -100,6 +100,23 @@ def run_gen(
         jobs.spawn_runner(job_id)
         click.echo(f"job {job_id} → {out}   (poll: ig model jobs {job_id})")
         return
+    if gen_opts.get("json"):
+        _warn_if_live(model.name, build_overrides)
+        sock = daemon.ensure_daemon(model.name)
+
+        def _emit(d: dict[str, Any]) -> None:
+            sys.stdout.write(_json.dumps(d) + "\n")
+            sys.stdout.flush()
+
+        result = stream_request(sock, req, _emit)
+        _emit(result)
+        if result.get("ok"):
+            summary = metadata.build_summary(out, result, model=model.name,
+                                             prompt=gen_opts.get("prompt"))
+            metadata.write_sidecar(out, summary)
+        else:
+            raise click.ClickException(str(result.get("error", "generation failed")))
+        return
     _warn_if_live(model.name, build_overrides)
     sock = daemon.ensure_daemon(model.name)  # auto-start + wait-ready
     result = stream_request(sock, req, _render_progress)

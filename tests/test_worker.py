@@ -9,25 +9,68 @@ def _fake_pipeline():
 
     class FakeResult:
         def __init__(self, seed):
-            self.image = FakeImg()
-            self.seed = seed or 1
-            self.width = 64
-            self.height = 64
-            self.preset = "V4_TURBO_12"
+            self.image = FakeImg(); self.seed = seed or 1
+            self.width = 64; self.height = 64; self.preset = "V4_TURBO_12"
             self.caption = {"high_level_description": "x"}
-            self.backend = "fake"
-            self.duration_s = 0.1
+            self.backend = "fake"; self.duration_s = 0.1
 
     class FakePipeline:
-        def magic(
-            self, prompt, *, width, height, target_elements=0, magic_provider=None, magic_model=None
-        ):
+        def magic(self, prompt, *, width, height, target_elements=0,
+                  magic_provider=None, magic_model=None):
             return {"high_level_description": prompt}
 
-        def generate(self, caption, *, width, height, preset, seed):
+        def generate(self, caption, *, width, height, preset, seed, progress=None):
+            if progress is not None:
+                for k in range(1, 3):  # 2 fake steps
+                    progress(k, 2)
             return FakeResult(seed)
 
     return FakePipeline()
+
+
+def test_run_emits_caption_then_per_step_then_saving():
+    from imgen.worker import handle_request
+
+    import tempfile, os
+    with tempfile.TemporaryDirectory() as td:
+        out = os.path.join(td, "o.png")
+        events = []
+        res = handle_request(
+            _fake_pipeline(),
+            {"op": "run", "prompt": "a cat", "width": 64, "height": 64,
+             "seed": 9, "preset": "V4_TURBO_12", "output_path": out},
+            events.append,
+        )
+    seq = [(e.get("phase"), e.get("step"), e.get("total")) for e in events if e.get("type") == "progress"]
+    assert seq == [
+        ("magic-prompt", None, None),
+        ("caption", None, None),
+        ("sampling", 1, 2),
+        ("sampling", 2, 2),
+        ("saving", None, None),
+    ]
+    caption_evt = next(e for e in events if e.get("phase") == "caption")
+    assert caption_evt["caption"] == {"high_level_description": "a cat"}
+    assert res["ok"] and res["seed"] == 9
+
+
+def test_generate_op_has_no_magic_or_caption_events():
+    from imgen.worker import handle_request
+
+    import tempfile, os
+    cap = {"high_level_description": "x"}
+    with tempfile.TemporaryDirectory() as td:
+        out = os.path.join(td, "o.png")
+        events = []
+        handle_request(
+            _fake_pipeline(),
+            {"op": "generate", "caption": cap, "width": 64, "height": 64,
+             "seed": 1, "preset": "V4_TURBO_12", "output_path": out},
+            events.append,
+        )
+    phases = [e.get("phase") for e in events if e.get("type") == "progress"]
+    assert "magic-prompt" not in phases and "caption" not in phases
+    assert phases == ["sampling", "sampling", "saving"]
 
 
 def test_handle_run_emits_progress_and_result(tmp_path):

@@ -51,8 +51,11 @@ class Pipeline:
         height: int,
         preset: str = "V4_DEFAULT_20",
         seed: int | None = None,
+        progress: "Callable[[int, int], None] | None" = None,
     ) -> GenerationResult:
-        return self.engine.generate(caption, width=width, height=height, preset=preset, seed=seed)
+        return self.engine.generate(
+            caption, width=width, height=height, preset=preset, seed=seed, progress=progress
+        )
 
     def run(
         self,

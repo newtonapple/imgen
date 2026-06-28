@@ -8,9 +8,11 @@ class FakeEngine:
 
     def __init__(self):
         self.calls = []
+        self.progress_seen = "unset"
 
-    def generate(self, caption, *, width, height, preset="V4_DEFAULT_20", seed=None):
+    def generate(self, caption, *, width, height, preset="V4_DEFAULT_20", seed=None, progress=None):
         self.calls.append((caption, seed))
+        self.progress_seen = progress
         return GenerationResult(
             image=object(),  # type: ignore[arg-type]
             seed=seed or 7,
@@ -94,3 +96,12 @@ def test_pipeline_per_request_override_uses_factory():
     out = p.magic("x", width=64, height=64, magic_provider="openrouter", magic_model="m")
     assert out["high_level_description"] == "openrouter/m:x"
     assert built == [("openrouter", "m")]
+
+
+def test_generate_forwards_progress_callback():
+    eng = FakeEngine()
+    p = Pipeline(engine=eng)
+    cb = lambda done, total: None
+    p.generate({"high_level_description": "x"}, width=64, height=64,
+               preset="V4_TURBO_12", seed=1, progress=cb)
+    assert eng.progress_seen is cb

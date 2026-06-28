@@ -47,3 +47,40 @@ def test_mlx_engine_clear_error_on_wrong_layout(tmp_path):
 
     with pytest.raises(RuntimeError, match="official fp8 checkpoint layout"):
         MlxEngine(ModelSpec(name="bad", path=tmp_path, backend=Backend.MLX))
+
+
+def test_mlx_generate_registers_reporter_and_forwards_progress():
+    from imgen.engine.mlx_engine import MlxEngine
+
+    class _FakeRegistry:
+        def __init__(self):
+            self.in_loop = []
+        def register(self, cb):
+            self.in_loop.append(cb)
+
+    class _FakeGenerated:
+        image = object()
+    class _FakeGenerator:
+        def __init__(self):
+            self.callbacks = _FakeRegistry()
+        def generate_image(self, *, prompt, seed, width, height, preset):
+            # mimic mflux: drive every registered in-loop callback per step
+            steps = range(3)
+            for t in steps:
+                for cb in self.callbacks.in_loop:
+                    cb.call_in_loop(t, time_steps=steps)
+            return _FakeGenerated()
+
+    eng = object.__new__(MlxEngine)   # skip __init__ (no mflux/model load)
+    eng._generator = _FakeGenerator()
+
+    seen = []
+    eng.generate(
+        {"high_level_description": "x", "style_description": {},
+         "compositional_deconstruction": {"background": "", "elements": []}},
+        width=64, height=64, preset="V4_TURBO_12", seed=0,
+        progress=lambda done, total: seen.append((done, total)),
+    )
+    assert seen == [(1, 3), (2, 3), (3, 3)]
+    # reporter removed after the call (no leak into the next generation)
+    assert eng._generator.callbacks.in_loop == []

@@ -566,6 +566,37 @@ def test_gen_queue_spawns_and_prints_job(monkeypatch: Any, tmp_path: Any) -> Non
 
 
 # Non-multiple-of-16 dims are rounded in the request and a warning is printed.
+def test_gen_json_emits_ndjson(monkeypatch: Any, tmp_path: Any) -> None:
+    import json
+    from imgen.cli import actions
+    from imgen import daemon
+
+    monkeypatch.setattr(daemon, "ensure_daemon", lambda name: "/tmp/fake.sock")
+
+    def fake_stream(sock, req, on_progress):
+        on_progress({"type": "progress", "phase": "magic-prompt"})
+        on_progress({"type": "progress", "phase": "caption", "caption": {"high_level_description": "x"}})
+        on_progress({"type": "progress", "phase": "sampling", "step": 1, "total": 2})
+        on_progress({"type": "progress", "phase": "sampling", "step": 2, "total": 2})
+        on_progress({"type": "progress", "phase": "saving"})
+        open(req["output_path"], "wb").close()
+        return {"ok": True, "seed": 5, "width": 64, "height": 64, "preset": "V4_TURBO_12",
+                "caption": {"high_level_description": "x"}, "backend": "fake",
+                "output_path": req["output_path"], "duration_s": 0.1}
+
+    monkeypatch.setattr(actions, "stream_request", fake_stream)
+
+    out = tmp_path / "o.png"
+    r = run(["ideogram4", "gen", "-p", "a cat", "--json", "-o", str(out)])
+    assert r.exit_code == 0, r.output
+    lines = [json.loads(l) for l in r.output.splitlines() if l.strip()]
+    # 5 progress events then the result line
+    assert [e.get("phase") for e in lines[:5]] == ["magic-prompt", "caption", "sampling", "sampling", "saving"]
+    assert lines[2] == {"type": "progress", "phase": "sampling", "step": 1, "total": 2}
+    assert lines[-1]["ok"] is True and lines[-1]["seed"] == 5
+    assert out.exists()
+
+
 def test_gen_rounds_non_multiple_of_16_and_warns(monkeypatch: Any, tmp_path: Any) -> None:
     import imgen.cli.actions as actions
     from imgen import daemon

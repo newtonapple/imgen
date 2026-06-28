@@ -7,11 +7,14 @@ factory builds the right one for the platform.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from PIL.Image import Image
+
+ProgressFn = Callable[[int, int], None]
 
 
 @dataclass
@@ -40,4 +43,5 @@ class ImageEngine(Protocol):
         height: int,
         preset: str = "V4_DEFAULT_20",
         seed: int | None = None,
+        progress: ProgressFn | None = None,
     ) -> GenerationResult: ...

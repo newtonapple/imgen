@@ -105,3 +105,40 @@ def test_torch_engine_clear_error_on_wrong_layout(tmp_path):
 
     with pytest.raises(RuntimeError, match="Ideogram-4 snapshot dir"):
         TorchEngine(ModelSpec(name="bad", path=tmp_path, backend=Backend.TORCH))
+
+
+def test_torch_generate_forwards_per_step_progress(monkeypatch):
+    import sys, types
+    from imgen.engine.torch_engine import TorchEngine
+
+    # Fake the `ideogram4` package: generate() does `from ideogram4 import PRESETS`.
+    fake_pkg = types.ModuleType("ideogram4")
+    class _P:  # preset params object with the attrs generate() reads
+        num_steps = 4
+        guidance_schedule = None
+        mu = 0.0
+        std = 1.0
+    fake_pkg.PRESETS = {"V4_TURBO_12": _P()}
+    monkeypatch.setitem(sys.modules, "ideogram4", fake_pkg)
+
+    eng = object.__new__(TorchEngine)  # skip __init__ (no model load)
+    eng.device = "cpu"
+
+    class _FakeImg:
+        size = (64, 64)
+    def fake_pipe(prompt, *, height, width, num_steps, guidance_schedule, mu, std, seed,
+                  raise_on_caption_issues, callback=None):
+        if callback is not None:
+            for k in range(1, num_steps + 1):
+                callback(k, num_steps)
+        return [_FakeImg()]
+    eng._pipe = fake_pipe
+
+    seen = []
+    eng.generate(
+        {"high_level_description": "x", "style_description": {},
+         "compositional_deconstruction": {"background": "", "elements": []}},
+        width=64, height=64, preset="V4_TURBO_12", seed=0,
+        progress=lambda done, total: seen.append((done, total)),
+    )
+    assert seen == [(1, 4), (2, 4), (3, 4), (4, 4)]

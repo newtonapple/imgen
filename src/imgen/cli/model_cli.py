@@ -87,6 +87,12 @@ def build_model_group(model: Any) -> click.Group:
         *model.gen_options,
         click.Option(["-o", "--out"], required=True, type=click.Path(), help="output image path"),
         click.Option(
+            ["--json", "json"],
+            is_flag=True,
+            default=False,
+            help="emit progress + result as NDJSON to stdout (machine-readable)",
+        ),
+        click.Option(
             ["--queue", "-q"],
             is_flag=True,
             default=False,
