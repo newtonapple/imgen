@@ -117,21 +117,33 @@ def _capture_cmd(stdout):
     return captured, run
 
 
-def test_codex_argv_unchanged():
+def test_codex_argv_is_sandboxed():
     captured, run = _capture_cmd(json.dumps(CAPTION))
     CliMagicPromptProvider(provider="codex", model="gpt-5.5", runner=run).expand(
         "a cat", width=512, height=512
     )
-    assert captured["cmd"][:5] == [captured["cmd"][0], "exec", "--model", "gpt-5.5", "--sandbox"]
+    cmd = captured["cmd"]
+    assert cmd[:4] == [cmd[0], "exec", "--model", "gpt-5.5"]
+    # Hardening: read-only sandbox (no writes/network), ignore the user config so
+    # a trusted-project entry can't relax the sandbox, ephemeral (no session).
+    assert cmd[cmd.index("--sandbox") + 1] == "read-only"
+    assert "--ignore-user-config" in cmd
+    assert "--ephemeral" in cmd
 
 
-def test_claude_argv():
+def test_claude_argv_disables_tools():
     captured, run = _capture_cmd(json.dumps(CAPTION))
     CliMagicPromptProvider(provider="claude", model="sonnet", runner=run).expand(
         "a cat", width=512, height=512
     )
     cmd = captured["cmd"]
-    assert cmd[1] == "-p" and cmd[-2:] == ["--model", "sonnet"]
+    assert cmd[1] == "-p"
+    assert cmd[cmd.index("--model") + 1] == "sonnet"
+    # Hardening: deny filesystem/shell/web/subagent tools so an injected prompt
+    # can't read files or run commands.
+    denied = cmd[cmd.index("--disallowedTools") + 1]
+    for tool in ("Bash", "Read", "Write", "WebFetch"):
+        assert tool in denied
 
 
 def test_pi_argv_splits_provider_and_model_on_first_slash():

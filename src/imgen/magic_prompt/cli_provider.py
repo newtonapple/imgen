@@ -73,8 +73,25 @@ class CliMagicPromptProvider:
             ]
         if self.provider == "claude":
             claude = shutil.which("claude") or "claude"
-            return [claude, "-p", instruction, "--model", self.model]
+            # Headless, non-interactive (-p) completion with NO tools. -p already
+            # denies tools that need approval (nothing can grant it), and we
+            # explicitly deny the filesystem/shell/web/subagent tools as defense
+            # in depth so an injected prompt can't read files or run commands.
+            return [
+                claude,
+                "-p",
+                instruction,
+                "--model",
+                self.model,
+                "--disallowedTools",
+                "Bash,Edit,Write,MultiEdit,NotebookEdit,Read,Glob,Grep,WebFetch,WebSearch,Task",
+            ]
         codex = shutil.which("codex") or "codex"
+        # read-only sandbox (no writes, no network) + --ignore-user-config so a
+        # trusted-project entry in ~/.codex/config.toml can't relax the sandbox;
+        # --ephemeral keeps no session state. codex still exposes a shell tool,
+        # but read-only + network isolation mean an injected prompt cannot write
+        # or exfiltrate (auth still resolves from CODEX_HOME).
         return [
             codex,
             "exec",
@@ -82,6 +99,7 @@ class CliMagicPromptProvider:
             self.model,
             "--sandbox",
             "read-only",
+            "--ignore-user-config",
             "--skip-git-repo-check",
             "--ephemeral",
             instruction,
