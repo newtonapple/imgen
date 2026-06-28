@@ -107,38 +107,115 @@ def test_torch_engine_clear_error_on_wrong_layout(tmp_path):
         TorchEngine(ModelSpec(name="bad", path=tmp_path, backend=Backend.TORCH))
 
 
-def test_torch_generate_forwards_per_step_progress(monkeypatch):
+def test_torch_generate_owns_loop_and_reports_progress(monkeypatch):
     import sys, types
+    from types import SimpleNamespace
+    import torch
     from imgen.engine.torch_engine import TorchEngine
 
-    # Fake the `ideogram4` package: generate() does `from ideogram4 import PRESETS`.
-    fake_pkg = types.ModuleType("ideogram4")
-    class _P:  # preset params object with the attrs generate() reads
-        num_steps = 4
-        guidance_schedule = None
-        mu = 0.0
-        std = 1.0
-    fake_pkg.PRESETS = {"V4_TURBO_12": _P()}
-    monkeypatch.setitem(sys.modules, "ideogram4", fake_pkg)
+    N = 3                                   # num_steps
+    BATCH, NIMG, LATENT, MAXTXT = 1, 4, 2, 3
 
-    eng = object.__new__(TorchEngine)  # skip __init__ (no model load)
-    eng.device = "cpu"
+    # Fake `ideogram4` package (generate() does `from ideogram4 import PRESETS`).
+    ideg = types.ModuleType("ideogram4")
+    ideg.PRESETS = {"V4_TURBO_12": SimpleNamespace(
+        num_steps=N, guidance_schedule=[1.0] * N, mu=0.5, std=1.0)}
+    monkeypatch.setitem(sys.modules, "ideogram4", ideg)
+
+    # Fake `ideogram4.scheduler` helpers (identity schedule; intervals length N+1).
+    sched = types.ModuleType("ideogram4.scheduler")
+    sched.get_schedule_for_resolution = lambda hw, *, known_mean, std: (lambda x: x)
+    sched.make_step_intervals = lambda n: torch.arange(n + 1, dtype=torch.float32)
+    monkeypatch.setitem(sys.modules, "ideogram4.scheduler", sched)
+
+    calls = {"cond": 0, "uncond": 0, "decoded": False}
+
+    class _Transformer:                     # callable + exposes .config.in_channels
+        config = SimpleNamespace(in_channels=LATENT)
+        def __call__(self, **kw):
+            calls["cond"] += 1
+            return torch.zeros_like(kw["x"])            # [B, MAXTXT+NIMG, LATENT]
+
+    def _uncond(**kw):
+        calls["uncond"] += 1
+        return torch.zeros_like(kw["x"])               # [B, NIMG, LATENT]
+
+    def _build_inputs(prompts, *, height, width):
+        return {
+            "token_ids": torch.zeros(BATCH, MAXTXT + NIMG, dtype=torch.long),
+            "text_position_ids": torch.zeros(BATCH, MAXTXT + NIMG, 3, dtype=torch.long),
+            "position_ids": torch.zeros(BATCH, MAXTXT + NIMG, 3, dtype=torch.long),
+            "segment_ids": torch.zeros(BATCH, MAXTXT + NIMG, dtype=torch.long),
+            "indicator": torch.zeros(BATCH, MAXTXT + NIMG, dtype=torch.long),
+            "num_image_tokens": NIMG, "grid_h": 2, "grid_w": 2, "max_text_tokens": MAXTXT,
+        }
 
     class _FakeImg:
         size = (64, 64)
-    def fake_pipe(prompt, *, height, width, num_steps, guidance_schedule, mu, std, seed,
-                  raise_on_caption_issues, callback=None):
-        if callback is not None:
-            for k in range(1, num_steps + 1):
-                callback(k, num_steps)
+
+    def _decode(z, *, grid_h, grid_w):
+        calls["decoded"] = True
         return [_FakeImg()]
-    eng._pipe = fake_pipe
+
+    pipe = SimpleNamespace(
+        device="cpu",
+        conditional_transformer=_Transformer(),
+        unconditional_transformer=_uncond,
+        _verify_prompts=lambda prompts, *, raise_on_issues: None,
+        _build_inputs=_build_inputs,
+        _encode_text=lambda tok, pos, ind: torch.zeros(BATCH, MAXTXT + NIMG, LATENT),
+        _decode=_decode,
+    )
+
+    eng = object.__new__(TorchEngine)       # skip __init__/model load
+    eng._pipe = pipe
+
+    cap = {"high_level_description": "x", "style_description": {},
+           "compositional_deconstruction": {"background": "", "elements": []}}
 
     seen = []
-    eng.generate(
-        {"high_level_description": "x", "style_description": {},
-         "compositional_deconstruction": {"background": "", "elements": []}},
-        width=64, height=64, preset="V4_TURBO_12", seed=0,
-        progress=lambda done, total: seen.append((done, total)),
-    )
-    assert seen == [(1, 4), (2, 4), (3, 4), (4, 4)]
+    res = eng.generate(cap, width=64, height=64, preset="V4_TURBO_12", seed=0,
+                       progress=lambda d, t: seen.append((d, t)))
+    assert seen == [(1, 3), (2, 3), (3, 3)]            # 1-based, num_steps times
+    assert calls["cond"] == N and calls["uncond"] == N
+    assert calls["decoded"] and res.image is not None and res.backend == "torch" and res.seed == 0
+
+    seen2 = []                                          # progress=None fires nothing
+    eng.generate(cap, width=64, height=64, preset="V4_TURBO_12", seed=0, progress=None)
+    assert seen2 == []
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    not _cuda_available() or MODEL_DIR is None,
+    reason="needs CUDA + a configured torch weights dir",
+)
+def test_torch_owned_loop_matches_pipeline_call():
+    import numpy as np
+    from imgen.engine.factory import create_pipeline
+    from imgen.engine.torch_engine import build_caption_prompt
+    from imgen.models.ideogram4 import PRESETS as MODEL_PRESETS
+
+    assert MODEL_DIR is not None
+    engine = create_pipeline(ModelSpec(name="ideogram4", path=MODEL_DIR, backend=Backend.TORCH))
+    preset, seed = "V4_TURBO_12", 1234
+
+    # ours (the owned loop)
+    ours = engine.generate(CAPTION, width=512, height=512, preset=preset, seed=seed)
+
+    # theirs (the sealed __call__) — same args our generate uses
+    params = __import__("ideogram4").PRESETS[preset]
+    _, prompt = build_caption_prompt(CAPTION)
+    theirs_img = engine._pipe(
+        prompt, height=512, width=512, num_steps=params.num_steps,
+        guidance_schedule=params.guidance_schedule, mu=params.mu, std=params.std,
+        seed=seed, raise_on_caption_issues=False)[0]
+
+    a = np.asarray(ours.image)
+    b = np.asarray(theirs_img)
+    assert a.shape == b.shape
+    # Fixed seed + identical ops ⇒ bit-identical. If a GPU nondeterminism delta appears,
+    # relax to PSNR >= 50 dB and record it in the task report.
+    assert np.array_equal(a, b), "owned loop diverged from Ideogram4Pipeline.__call__"
+
+

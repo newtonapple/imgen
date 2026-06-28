@@ -126,35 +126,89 @@ class TorchEngine:
         seed: int | None = None,
         progress: "Callable[[int, int], None] | None" = None,
     ) -> GenerationResult:
+        import torch
         from ideogram4 import PRESETS
+        from ideogram4.scheduler import get_schedule_for_resolution, make_step_intervals
 
         if preset not in PRESETS:
             raise ValueError(f"Unknown preset: {preset!r}. Choose from {sorted(PRESETS)}.")
+        params = PRESETS[preset]
+        num_steps = params.num_steps
         caption_dict, prompt = build_caption_prompt(caption)
         if seed is None:
             seed = random.randint(0, _SEED_MAX)
-        params = PRESETS[preset]
-        cb = (lambda done, total: progress(done, total)) if progress is not None else None
+
+        pipe = self._pipe
+        device = pipe.device
+        prompts = [prompt]
+        pipe._verify_prompts(prompts, raise_on_issues=False)
+
         t0 = time.time()
-        images = self._pipe(
-            prompt,
-            height=height,
-            width=width,
-            num_steps=params.num_steps,
-            guidance_schedule=params.guidance_schedule,
-            mu=params.mu,
-            std=params.std,
-            seed=seed,
-            raise_on_caption_issues=False,  # warn-not-fail; magic-prompt output conforms
-            callback=cb,
-        )
+        # --- setup (mirrors Ideogram4Pipeline.__call__) ---
+        schedule = get_schedule_for_resolution((height, width), known_mean=params.mu, std=params.std)
+        step_intervals = make_step_intervals(num_steps).to(device)
+
+        guidance_schedule = params.guidance_schedule
+        if guidance_schedule is not None:
+            gw_per_step = torch.as_tensor(guidance_schedule, dtype=torch.float32, device=device)
+            if gw_per_step.shape != (num_steps,):
+                raise ValueError(
+                    f"guidance_schedule must have shape ({num_steps},), got {tuple(gw_per_step.shape)}")
+        else:
+            gw_per_step = torch.full((num_steps,), 7.0, dtype=torch.float32, device=device)
+
+        inputs = pipe._build_inputs(prompts, height=height, width=width)
+        batch_size = len(prompts)
+        num_image_tokens = inputs["num_image_tokens"]
+        grid_h, grid_w = inputs["grid_h"], inputs["grid_w"]
+        max_text_tokens = inputs["max_text_tokens"]
+        latent_dim = pipe.conditional_transformer.config.in_channels
+
+        llm_features = pipe._encode_text(
+            inputs["token_ids"], inputs["text_position_ids"], inputs["indicator"])
+
+        neg_position_ids = inputs["position_ids"][:, max_text_tokens:]
+        neg_segment_ids = inputs["segment_ids"][:, max_text_tokens:]
+        neg_indicator = inputs["indicator"][:, max_text_tokens:]
+        neg_llm_features = torch.zeros(
+            batch_size, num_image_tokens, llm_features.shape[-1],
+            dtype=llm_features.dtype, device=device)
+
+        generator = torch.Generator(device=device)
+        if seed is not None:
+            generator.manual_seed(seed)
+        z = torch.randn(
+            batch_size, num_image_tokens, latent_dim,
+            dtype=torch.float32, device=device, generator=generator)
+        text_z_padding = torch.zeros(
+            batch_size, max_text_tokens, latent_dim, dtype=torch.float32, device=device)
+
+        # --- denoise loop (ours; progress fires natively) ---
+        with torch.no_grad():
+            for i in range(num_steps - 1, -1, -1):
+                t_val = float(schedule(step_intervals[i + 1].unsqueeze(0)).item())
+                s_val = float(schedule(step_intervals[i].unsqueeze(0)).item())
+                t = torch.full((batch_size,), t_val, dtype=torch.float32, device=device)
+
+                pos_z = torch.cat([text_z_padding, z], dim=1)
+                pos_out = pipe.conditional_transformer(
+                    llm_features=llm_features, x=pos_z, t=t,
+                    position_ids=inputs["position_ids"], segment_ids=inputs["segment_ids"],
+                    indicator=inputs["indicator"])
+                pos_v = pos_out[:, max_text_tokens:]
+
+                neg_v = pipe.unconditional_transformer(
+                    llm_features=neg_llm_features, x=z, t=t,
+                    position_ids=neg_position_ids, segment_ids=neg_segment_ids,
+                    indicator=neg_indicator)
+
+                gw_i = gw_per_step[i]
+                v = gw_i * pos_v + (1.0 - gw_i) * neg_v
+                z = z + v * (s_val - t_val)
+                if progress is not None:
+                    progress(num_steps - i, num_steps)   # 1-based completed steps
+
+        images = pipe._decode(z, grid_h=grid_h, grid_w=grid_w)
         return GenerationResult(
-            image=images[0],
-            seed=seed,
-            width=width,
-            height=height,
-            preset=preset,
-            caption=caption_dict,
-            backend="torch",
-            duration_s=time.time() - t0,
-        )
+            image=images[0], seed=seed, width=width, height=height, preset=preset,
+            caption=caption_dict, backend="torch", duration_s=time.time() - t0)

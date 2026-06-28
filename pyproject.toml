@@ -22,7 +22,7 @@ mlx = [
 # the DGX Spark with torch 2.12.1+cu130 / transformers 5.12.1 / bitsandbytes 0.49.2.
 cuda = [
   "torch",
-  "ideogram-4 @ git+https://github.com/ideogram-oss/ideogram4.git@main",
+  "ideogram-4 @ git+https://github.com/ideogram-oss/ideogram4.git@415abf4de6ce6cf5e7b54695037818da5a7a8f9e",
   "transformers>=5.0",
   "accelerate>=1.0.0",
   "safetensors>=0.4.5",
