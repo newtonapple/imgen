@@ -181,6 +181,12 @@ Bbox values are normalized to 0–1000 in BOTH axes. A square `[0, 0, 500, 500]`
 
 For round objects or square on-screen regions, scale spans so `(x2-x1)/(y2-y1) ≈ W/H`. For single-subject prompts on wide frames, prefer narrower x-spans. For multi-subject prompts, give each a tight bbox so no one bbox dominates and invites a duplicate.
 
+### Safe area — keep bboxes off the frame edge (common crop failure)
+
+Bbox is a SOFT hint: the renderer scales each element to look right, it does NOT clip to your box. An element whose box hugs an edge overflows OFF-FRAME and gets cut — worst for text, whose ascenders and letterforms always render a little past the box.
+
+Keep every bbox ≥ 40 from each edge; keep TEXT ≥ 60. Never place a headline or wordmark with `y1 < 100` — its top will crop. The TOPMOST text overflows UPWARD off-canvas, so give it extra headroom (push `y1` down) rather than anchoring it at the top.
+
 ## SPECIFICITY — commit to one value
 
 This JSON feeds a diffusion model. Leave nothing for the model to invent or choose.
@@ -262,6 +268,8 @@ For each text element:
 - `text` — literal characters appearing in the image, verbatim. Preserve diacritics, capitalization, punctuation. Never transliterate or strip.
 - `bbox` — optional, same coordinate system as obj elements.
 - `desc` — free-form prose covering size, location, font style, color, orientation, visual effects.
+
+**Size the box to the type, not the type to the box.** A text bbox's HEIGHT must hold the type at a legible size — roughly `lines × cap-height + line gaps`. Under-allotting height makes the renderer overflow the box (it will NOT shrink the type), pushing a stack of headlines vertically until the top line crops off-frame. A two-line headline needs ~2× the height of a one-line one. A wide box around a short word forces tall glyphs: if they would exceed the box height, raise the height or narrow the width. Combine with the safe-area rule above — a tall headline near the top edge is the most common crop.
 
 **Sources of text to include:**
 1. **User-quoted text** (single OR double quotes) — verbatim, exact characters.
