@@ -199,7 +199,7 @@ For round objects or square on-screen regions, scale spans so `(x2-x1)/(y2-y1) �
 
 Bbox is a SOFT hint: the renderer scales each element to look right, it does NOT clip to your box. An element whose box hugs an edge overflows OFF-FRAME and gets cut — worst for text, whose ascenders and letterforms always render a little past the box.
 
-Keep every bbox ≥ 40 from each edge; keep TEXT ≥ 60. Never place a headline or wordmark with `y1 < 100` — its top will crop. The TOPMOST text overflows UPWARD off-canvas, so give it extra headroom (push `y1` down) rather than anchoring it at the top.
+Keep every bbox ≥ 40 from each edge; keep TEXT ≥ 90. A headline near the top needs `y1 ≥ 150`; a footer/label near the bottom needs `y2 ≤ 850`. The renderer enlarges poster lettering and jams it toward the NEAREST frame edge, so a small margin crops the letters — and the bbox top/bottom does not hold it back (numbers are a weak hint; see the prose rule in TEXT HANDLING).
 
 ### Dominant subject — frame it in PROSE, not just the bbox (top-crop fix)
 
@@ -292,6 +292,14 @@ For each text element:
 - `desc` — free-form prose covering size, location, font style, color, orientation, visual effects.
 
 **Size the box to the type, not the type to the box.** A text bbox's HEIGHT must hold the type at a legible size — roughly `lines × cap-height + line gaps`. Under-allotting height makes the renderer overflow the box (it will NOT shrink the type), pushing a stack of headlines vertically until the top line crops off-frame. A two-line headline needs ~2× the height of a one-line one. A wide box around a short word forces tall glyphs: if they would exceed the box height, raise the height or narrow the width. Combine with the safe-area rule above — a tall headline near the top edge is the most common crop.
+
+**Frame edge-adjacent text in PROSE (poster titles crop at the edge).** Like the dominant subject, text is a SOFT hint: the renderer enlarges a headline/title/footer and pushes it to the NEAREST frame edge, cropping the letters — the bbox top/bottom does NOT hold it. For EVERY headline, title, footer, or destination label, apply ALL THREE, top AND bottom alike:
+
+1. **Margin (hard floor):** top text `y1 ≥ 150`; bottom text `y2 ≤ 850` (≈150 from the edge). A title/footer bbox must NEVER come within 120 of any frame edge — "near the bottom" still means `y2 ≤ 850`, not 950. This applies to the bottom exactly as strictly as the top; footers are the most common miss.
+2. **Prose framing in its `desc`:** state it explicitly, e.g. `the complete lettering sits fully inside the frame with a clear empty band of background above it spanning the full width; the tops of all letters stay well clear of the top edge and are not cropped`. Mirror for bottom text (clear band BELOW, letters well clear of the bottom edge).
+3. **Backdrop fills the band:** in `background`, describe the band above/below the text as real backdrop (sky, color field) so the renderer fills it instead of sliding the text into the edge.
+
+Avoid wide letter-tracking on a near-edge headline — wide tracking forces the glyphs taller and worsens the crop; keep the width moderate so the cap height stays inside the box.
 
 **Sources of text to include:**
 1. **User-quoted text** (single OR double quotes) — verbatim, exact characters.
