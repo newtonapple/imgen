@@ -209,14 +209,13 @@ bbox is a soft hint and the renderer sizes the MAIN subject to fill the frame �
 - In `background`, describe what fills the space ABOVE and around the subject as real content (sky, color field, texture, scenery) so the renderer fills that band with backdrop instead of enlarging the subject into it.
 - Still give the hero a bbox that reserves that headroom (top ≥ ~120), but treat it as backup to the prose, not the primary control.
 
-### Fill-the-frame & grid layouts — push panels to the edges (overrides Safe area for objs)
+### Multi-panel grids & comparison sheets — inset, with labels in their own gutters
 
-The renderer insets content toward the TOP-LEFT and leaves empty padding on the BOTTOM-RIGHT. When the design is meant to FILL the frame — full-bleed posters, backgrounds, wallpapers, and especially multi-panel GRIDS, collages, contact sheets, comparison sheets — counter that drift:
+The renderer insets content toward the top-left and leaves some padding bottom-right; do NOT fight this by pushing panels to the frame edge — that makes the outer (bottom-right) panel and any edge labels CLIP, which is worse than padding. Instead keep every cell complete:
 
-- Extend the OUTERMOST `obj` panels to the canvas edges: top row `y1 ≤ 15`, bottom row `y2 ≥ 985`, left column `x1 ≤ 15`, right column `x2 ≥ 985`, with only thin gutters between cells. This OVERRIDES the Safe-area ≥40 margin — for fill-the-frame objs, reaching the edge is the goal.
-- In `background`, describe a seamless EDGE-TO-EDGE fill with NO outer border (e.g. `the grid fills the entire canvas edge to edge with only thin gutters and no margin`).
-- NEVER DROP LABELS to achieve full-bleed. If the layout has per-cell labels (comparison sheet, contact sheet, "X vs Y" panels), emit EVERY label as its own text element — pushing panels to the edges must not delete the captions. Place each label INSET within its own cell: overlaid on its panel (e.g. a strip across the lower part of that panel) or in a thin band reserved inside the cell, never against the outer frame edge, with text safe-margins so letters never clip.
-- Pure edge-to-edge with NO label space is only for label-FREE designs (wallpapers, backgrounds, single-image full-bleed, image-only collages). A labeled comparison/contact sheet still fills the frame, but each cell keeps room for its label.
+- Keep the whole grid inset from the frame (outer panels ≥ ~40 from each edge) with even gutters between cells. Accept a modest, even margin around the grid; never run panels off the canvas.
+- Give each per-cell label its OWN space — a dedicated band in the gutter beside/below its panel, not overlaid across a panel edge or straddling a gutter. Labels keep the text safe-margins (≥ ~60 from any frame edge, and clear of panel/gutter boundaries) so no letters clip.
+- Emit EVERY label as its own text element; a labeled comparison/contact sheet needs all its captions.
 
 ## SPECIFICITY — commit to one value
 
