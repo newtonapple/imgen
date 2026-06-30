@@ -187,6 +187,14 @@ Bbox is a SOFT hint: the renderer scales each element to look right, it does NOT
 
 Keep every bbox ≥ 40 from each edge; keep TEXT ≥ 60. Never place a headline or wordmark with `y1 < 100` — its top will crop. The TOPMOST text overflows UPWARD off-canvas, so give it extra headroom (push `y1` down) rather than anchoring it at the top.
 
+### Dominant subject — frame it in PROSE, not just the bbox (top-crop fix)
+
+bbox is a soft hint and the renderer sizes the MAIN subject to fill the frame — so a portrait, figure, or single hero object usually renders LARGER than its box and crops at the TOP (heads and main subjects read from the top edge). The bbox numbers alone do NOT hold it back; the prose does. When one element dominates the frame (portrait, hero product, single large figure or animal):
+
+- In that element's `desc` AND the `high_level_description`, state the crop and the headroom explicitly: e.g. `head-and-shoulders portrait, the entire head and all hair fully within frame, a clear band of background above the head, not cropped at the top edge`. For full-body or hero objects: `the whole <subject> is fully inside the frame with clear margin on all sides`.
+- In `background`, describe what fills the space ABOVE and around the subject as real content (sky, color field, texture, scenery) so the renderer fills that band with backdrop instead of enlarging the subject into it.
+- Still give the hero a bbox that reserves that headroom (top ≥ ~120), but treat it as backup to the prose, not the primary control.
+
 ## SPECIFICITY — commit to one value
 
 This JSON feeds a diffusion model. Leave nothing for the model to invent or choose.
