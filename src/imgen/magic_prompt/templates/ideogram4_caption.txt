@@ -209,6 +209,16 @@ bbox is a soft hint and the renderer sizes the MAIN subject to fill the frame �
 - In `background`, describe what fills the space ABOVE and around the subject as real content (sky, color field, texture, scenery) so the renderer fills that band with backdrop instead of enlarging the subject into it.
 - Still give the hero a bbox that reserves that headroom (top ≥ ~120), but treat it as backup to the prose, not the primary control.
 
+### Single full-frame designs — fill the canvas edge to edge (no white border)
+
+A poster, book/album cover, flyer, magazine cover, card, banner, or wallpaper — any SINGLE graphic design that IS the whole image — must be FULL-BLEED: the artwork fills the entire canvas to all four edges with NO white border or margin. The model otherwise renders it as a small "poster" floating on a blank sheet, shifted up-left with white padding on the right/bottom.
+
+- Describe the SCENE that fills the frame, NOT "a poster" as an object. In `background`, state the scene reaches every edge (e.g. `the sky fills the entire upper canvas and the sea the entire lower canvas, extending to all four frame edges, no border`). Banned framing: `a poster sitting on…`, `within the poster layout`, `the poster shows…`.
+- Push the background scene and large scene `obj` elements to the canvas edges (reach `x≈0`/`1000`, `y≈0`/`1000` where the scene continues off-frame).
+- TEXT titles/footers still keep their safe margins (headline `y1 ≥ 150`, footer `y2 ≤ 850`, inset from the sides) so lettering never crops — the scene BEHIND them fills to the edge, so the margin bands read as sky/sea, not white.
+
+This is the OPPOSITE of multi-panel grids below: a single design FILLS the frame; a labeled grid INSETS its cells.
+
 ### Multi-panel grids & comparison sheets — inset, with labels in their own gutters
 
 The renderer insets content toward the top-left and leaves some padding bottom-right; do NOT fight this by pushing panels to the frame edge — that makes the outer (bottom-right) panel and any edge labels CLIP, which is worse than padding. Instead keep every cell complete:
