@@ -4,7 +4,7 @@ from __future__ import annotations
 
 def _fake_pipeline():
     class FakeImg:
-        def save(self, p):
+        def save(self, p, **kwargs):
             open(p, "wb").close()
 
     class FakeResult:
@@ -186,7 +186,7 @@ def test_handle_run_passes_magic_overrides(tmp_path):
     seen = {}
 
     class FakeImg:
-        def save(self, p):
+        def save(self, p, **kwargs):
             open(p, "wb").close()
 
     class FakeResult:
@@ -224,3 +224,42 @@ def test_handle_run_passes_magic_overrides(tmp_path):
         lambda d: None,
     )
     assert seen == {"provider": "openrouter", "model": "m"}
+
+
+def test_handle_request_saves_lossless_webp_when_format_webp(tmp_path):
+    from PIL import Image
+    from imgen.worker import handle_request
+
+    src = Image.new("RGB", (32, 32))
+    for y in range(32):
+        for x in range(32):
+            src.putpixel((x, y), (x * 8 % 256, y * 8 % 256, (x + y) * 4 % 256))
+
+    class _Result:
+        image = src
+        seed = 1
+        width = 32
+        height = 32
+        preset = "V4_DEFAULT_20"
+        backend = "test"
+        duration_s = 0.0
+
+    class _Pipe:
+        def generate(self, *a, **k):
+            return _Result()
+
+    out = tmp_path / "img.webp"
+    req = {
+        "op": "generate",
+        "caption": {"elements": []},
+        "width": 32,
+        "height": 32,
+        "output_path": str(out),
+        "format": "webp",
+    }
+    res = handle_request(_Pipe(), req, lambda d: None)
+    assert res["ok"] is True
+    with Image.open(out) as got:
+        assert got.format == "WEBP"
+        # lossless: decoded pixels are byte-identical to the source render
+        assert got.convert("RGB").tobytes() == src.convert("RGB").tobytes()

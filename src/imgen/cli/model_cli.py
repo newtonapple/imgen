@@ -87,6 +87,13 @@ def build_model_group(model: Any) -> click.Group:
         *model.gen_options,
         click.Option(["-o", "--out"], required=True, type=click.Path(), help="output image path"),
         click.Option(
+            ["-f", "--format", "format"],
+            type=click.Choice(["png", "webp"]),
+            default=None,
+            help="output format: png (default) or webp (lossless). "
+            "Unset = infer from the -o extension, else png.",
+        ),
+        click.Option(
             ["--json", "json"],
             is_flag=True,
             default=False,

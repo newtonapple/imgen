@@ -14,6 +14,7 @@ from ..config import Config, Secrets, resolve_backend, resolve_weights_path, dae
 from ..engine.resolution import resolve_size
 from ..magic_prompt.providers import ALL_PROVIDERS
 from ..platform import Backend, default_backend
+from ..image_output import resolve_format
 from ..worker import stream_request
 
 
@@ -63,6 +64,7 @@ def _resolve_dims(width: Any, height: Any) -> tuple[int, int]:
 
 def _build_request(out: str, gen_opts: dict[str, Any]) -> dict[str, Any]:
     width, height = _resolve_dims(gen_opts["width"], gen_opts["height"])
+    fmt = resolve_format(out, gen_opts.get("format"))
     caption = gen_opts.get("caption")
     if caption:
         return {
@@ -73,6 +75,7 @@ def _build_request(out: str, gen_opts: dict[str, Any]) -> dict[str, Any]:
             "preset": gen_opts.get("preset", "V4_DEFAULT_20"),
             "seed": gen_opts.get("seed"),
             "output_path": out,
+            "format": fmt,
         }  # caption path skips magic-prompt, so --mp/--mm don't apply here
     return {
         "op": "run",
@@ -85,6 +88,7 @@ def _build_request(out: str, gen_opts: dict[str, Any]) -> dict[str, Any]:
         "output_path": out,
         "magic_provider": gen_opts.get("magic_provider"),
         "magic_model": gen_opts.get("magic_model"),
+        "format": fmt,
     }
 
 

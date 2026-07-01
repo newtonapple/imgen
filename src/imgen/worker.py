@@ -8,6 +8,8 @@ import socket
 from collections.abc import Callable
 from typing import Any
 
+from .image_output import save_image
+
 
 def handle_request(
     pipeline: Any, req: dict[str, Any], emit: Callable[[dict[str, Any]], None]
@@ -51,7 +53,7 @@ def handle_request(
                 progress=_on_step,
             )
             emit({"type": "progress", "phase": "saving"})
-            r.image.save(req["output_path"])
+            save_image(r.image, req["output_path"], req.get("format", "png"))
             return {
                 "ok": True,
                 "seed": r.seed,
